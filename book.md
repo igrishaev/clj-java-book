@@ -219,9 +219,399 @@ cannot wait to go further. So am I.
 Interop
 
 
+Parsing User Agent header
+
+OK, let's get some coding. The problem we are going solve is the
+following. Imagine we are developing a sort of analytic system that should
+collect as much information about a user as possible. Businesses prescribe us to
+store data about users' operations systems, their verson and family, browsers,
+if they were using mobile devices and what exactly (iOS, Android, etc).
+
+Most of this information might be borrowed from a User-Agen HTTP header. It's a
+string that brings almost everything we need. Every time a user opens a
+web-page, their browser sends this string. Here is mine, copied from Google
+Chrome:
+
+```text
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like
+Gecko) Chrome/67.0.3396.99 Safari/537.36
+```
+
+The problem with User-Agent is, it is quite bad organized. For decades of
+chaotic web-development, browser monufacturers have been dumping more and more
+data there. What it ended up with, there is no a single and clear rule to parse
+User-Agent.
+
+Doing that manually is one of those tasks that look simple, but turns into a
+mess full of nested `if`. The right decision would be to import a Java library
+made for this purpose.
+
+The whole process consisits of three stages. The first one, we find a proper
+library and plug it in into our project. Then we add a new module with code that
+calls that library. On the third step, we turn the result into habital Clojure
+structures, usualy a combination of maps and vectors.
+
+[uadetector-site]: http://uadetector.sourceforge.net/
+
+The library I decided to pick up is [UA Detector][uadetector-site]. It recognizes
+plenty of patterns for desktop computers, mobile devices and web-crawlers
+(Goole, Yahoo, etc). In your `project.clj` file, and the following into the
+`:dependencies` vector:
+
+```clojure
+[net.sf.uadetector/uadetector-core "0.9.10"]
+[net.sf.uadetector/uadetector-resources "2014.10"]
+```
+
+It looks strange that we added two lines but not just one. This is because of
+the architecture of a library. It consists of two parts: common API and
+resources.
+
+The common part, `uadetector-core`, provides high-level API so you call them
+without bothering what's under the hood. The resource part,
+`uadetector-resources`, plays role of a database of known patterns. Such design
+brings certain benefets. If a new portion of User Agent patter occures across
+the Internet, there would be enough to bump only `uadetector-resources`
+dependency keeping `uadetector-core` at the same version.
+
+Moving to the step two, let's create a separate namespace where all the Java
+interop will be stored and add some draft lines:
+
+```clojure
+(ns project.ua
+  (:import [net.sf.uadetector.service
+            UADetectorServiceFactory]))
+
+(def ^:private parser
+  (UADetectorServiceFactory/getResourceModuleParser))
+
+(defn parse [^String user-agent]
+  (.parse parser user-agent))
+```
+
+The main detail here is we created a `parser` object which is an instance of
+`UserAgentStringParserImpl` class. Since most of the Java objects are mutable,
+it is better to keep that object being private so nobody can affect it from the
+outside of our namespace.
+
+The `parse` function accepts a User-Agent string and calls `parse` method
+against that object passing the string as the first argument. Pay attention on a
+type hint. When playing with Java objects, type hints help a lot not only to
+compiler to dispatch a proper method, but also to us, human being.
+
+If we call the function with some sensible user agent sample:
+
+```
+(def ua-sample
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like
+Gecko) Chrome/67.0.3396.99 Safari/537.36")
+
+(def result (parse ua-sample))
+```
+
+, the result will be an instance of `net.sf.uadetector.UserAgent` class. Its
+string representation looks like this:
+
+```
+#object[net.sf.uadetector.UserAgent 0x3acfecaa "UserAgent [deviceCategory=DeviceCategory [category=PERSONAL_COMPUTER, icon=desktop.png, infoUrl=/list-of-ua/device-detail?device=Personal computer, name=Personal computer], family=CHROME, icon=chrome.png, name=Chrome, operatingSystem=OperatingSystem [family=OS_X, familyName=OS X, icon=macosx.png, name=OS X, producer=Apple Computer, Inc., producerUrl=http://www.apple.com/, url=http://en.wikipedia.org/wiki/Mac_OS_X, versionNumber=VersionNumber [groups=[10, 11, 6], extension=]], producer=Google Inc., producerUrl=http://www.google.com/, type=BROWSER, typeName=Browser, url=http://www.google.com/chrome, versionNumber=VersionNumber [groups=[67, 0, 3396, 99], extension=]]"]
+```
+
+This definiteley not a Clojure structure and thus cannot be used with core
+functions. But the fields inside confirm we managed to parse something. Here,
+the step two ends and we start thinking on how to make the result more
+Clojure-friendly.
+
+To Clojure recursive pattern
+
+Let's remind how do they store data in Java. Usualy it's an instance of a
+top-level class that keeps references to other instances of lower ranks. For
+example, an `UserAgent` object keeps references to the `DeviceCategory` and
+`OperatingSystem` objects. These classes store some other minor data and so
+forth. What we've got here is a tree of objects.
+
+To convert such a tree to Clojure, let's write a function. It accepts the
+top-level object first and returns a map with keywords for keys and method calls
+to that object for values. If a method returns a primitive data type, say
+integer or string, we keep that as a final value. If there is a complex object,
+we pass it to the same function to take it apart on a map again and so forth
+until all the values are of primitive types.
+
+This is what I name "recursive to-Clojure pattern".
+
+The function we are going to write should be not an ordinary `defn` function but
+rather a part of a protocol. Each data type we need to conver to Clojue will
+implement this protocol. It assures the function will operate on only sertain
+types we need but not any possible value.
+
+Here is a protocol we need:
+
+```clojure
+(defprotocol ToClojure
+  (->clj [x]))
+```
+
+Now import the classes we need to extend with that protocol. In your namespace
+declaration, extend the `(:import ...)` statement as follows:
+
+```clojure
+(ns project.ua
+  (:import [net.sf.uadetector.service
+            UADetectorServiceFactory]
+
+           [net.sf.uadetector
+            UserAgent
+            UserAgentType
+            VersionNumber
+            DeviceCategory
+            ReadableDeviceCategory$Category
+            UserAgentFamily
+            OperatingSystem]))
+```
 
 
-Parsing User Agent string
+[javadocs-ua]: http://uadetector.sourceforge.net/modules/uadetector-core/apidocs/net/sf/uadetector/UserAgent.html
+
+
+Now extend the top-level `UserAgent` class. To analyse it's atomony, take a look
+at the [Javadocs page][javadocs-ua]. Briefly, we are interested in all the
+getters from that class.
+
+```
+(extend-protocol ToClojure
+
+  UserAgent
+  (->clj [ua]
+    {:device       (.getDeviceCategory ua)
+     :family       (.getFamily ua)
+     :icon         (.getIcon ua)
+     :name         (.getName ua)
+     :os           (.getOperatingSystem ua)
+     :producer     (.getProducer ua)
+     :producer-url (.getProducerUrl ua)
+     :type         (.getType ua)
+     :type-name    (.getTypeName ua)
+     :url          (.getUrl ua)
+     :version      (.getVersionNumber ua)}))
+```
+
+If we pass the `result` value into the `->clj` function, we will get a map with
+a structure described above. This is great, but most of the values of that map
+are still complex Java classes. We need to simplify them too.
+
+Let's start with the `:device` field. Rather than keeping its value as-is, we
+wrap it with `->clj` and then extend the `DeviceCategory` class with to-Clojure
+implementation.
+
+Fix the previous `:device` value:
+
+```
+  UserAgent
+  (->clj [ua]
+    {:device       (->clj (.getDeviceCategory ua))
+```
+
+Extend `DeviceCategory` and it's nested enum type:
+
+```clojure
+(extend-protocol ToClojure
+
+  DeviceCategory
+  (->clj [dev]
+    {:category (->clj (.getCategory dev))
+     :name (.getName dev)})
+
+  ReadableDeviceCategory$Category
+  (->clj [cat]
+    (-> cat .name keyword))))
+```
+
+The threading macro (a single arrow) above gets the enum value returned from
+`getCategory` method. Then it takes its name as a string and produces a
+keyword. In Clojure, we usualy deal with keywords rather than strings.
+
+No that, all the branch under the `:device` field consist only of nested Clojure
+maps and primitive values. So you've got the idea: for every Java class we
+describe the way it reflects to the Clojure world.
+
+Moving on to the `:family` field:
+
+```clojure
+
+  ;; wrap with `->clj` that field
+  UserAgent
+  (->clj [ua]
+    {:device       (->clj (.getDeviceCategory ua))
+     :family       (->clj (.getFamily ua))
+
+;; implementation
+
+(extend-protocol ToClojure
+
+  UserAgentFamily
+  (->clj [fam]
+    (-> fam .name keyword)))
+```
+
+Now, the `:family` field is not a Java class but a keyword something like
+`:CHROME`.
+
+Before we finish the rest of it, let's simplify something. You may notice we've
+already faced a enum value a couple of times. These are
+`ReadableDeviceCategory$Category` and `UserAgentFamily` classes. The code that
+turns them into Clojure looks the same so it can be generalized. Who knows how
+many enums we will face in further. Since all the enums exten the basic
+`java.lang.Enum` class, let's extend just it leaving `UserAgentFamily` and other
+custom enums alone:
+
+```clojure
+(extend-protocol ToClojure
+
+  java.lang.Enum
+  (->clj [e]
+    (-> e .name keyword)))
+```
+
+So our previous implementations for `UserAgentFamily` and
+`ReadableDeviceCategory$Category` might be wiped from the project in addition to
+their imports in the namespace header.
+
+This is a good sign, by the way. Deleting code means you really do something
+useful. Instead, adding more code makes things worse.
+
+Let's finish with the rest of our task. Taking apart an operating system would
+be:
+
+```clojure
+(extend-protocol ToClojure
+
+  OperatingSystem
+  (->clj [os]
+    {:family (->clj (.getFamily os))
+     :family-name (.getFamilyName os)
+     :name (.getName os)
+     :producer (.getProducer os)
+     :producer-url (.getProducerUrl os)
+     :url (.getUrl os)
+     :version (.getVersionNumber os)}))
+```
+
+And the last one for versioning:
+
+```clojure
+(extend-protocol ToClojure
+
+  VersionNumber
+  (->clj [ver]
+    {:bug-fix (.getBugfix ver)
+     :extension (.getExtension ver)
+     :groups (.getGroups ver)
+     :major (.getMajor ver)
+     :minor (.getMinor ver)
+     :version (.toVersionString ver)}))
+```
+
+In versioning map, we return components for a version number in separated fields
+and the whole version string in a `:version` field.
+
+The last touches would be to add `->clj` into our `parse` function to it returns
+a Clojure map rather than a Java object. The second thing would be to clean the
+code a bit: remove unused classes and join our `extend-protocol` statements into
+a single one.
+
+```clojure
+(defn parse [^String user-agent]
+  (->clj (.parse parser user-agent)))
+
+(extend-protocol ToClojure
+
+  UserAgent
+  (->clj [ua]
+    {:device       (->clj (.getDeviceCategory ua))
+     :family       (->clj (.getFamily ua))
+     :icon         (.getIcon ua)
+     :name         (.getName ua)
+     :os           (->clj (.getOperatingSystem ua))
+     :producer     (.getProducer ua)
+     :producer-url (.getProducerUrl ua)
+     :type         (->clj (.getType ua))
+     :type-name    (.getTypeName ua)
+     :url          (.getUrl ua)
+     :version      (->clj (.getVersionNumber ua))})
+
+  OperatingSystem
+  (->clj [os]
+    {:family (->clj (.getFamily os))
+     :family-name (.getFamilyName os)
+     :name (.getName os)
+     :producer (.getProducer os)
+     :producer-url (.getProducerUrl os)
+     :url (.getUrl os)
+     :version (->clj (.getVersionNumber os))})
+
+  VersionNumber
+  (->clj [ver]
+    {:bug-fix (.getBugfix ver)
+     :extension (.getExtension ver)
+     :groups (.getGroups ver)
+     :major (.getMajor ver)
+     :minor (.getMinor ver)
+     :version (.toVersionString ver)})
+
+  java.lang.Enum
+  (->clj [e]
+    (-> e .name keyword)))
+```
+
+A quick test:
+
+```clojure
+(parse ua-sample)
+
+{:producer "Google Inc."
+ :family :CHROME
+ :name "Chrome"
+ :type :BROWSER
+ :icon "chrome.png"
+ :producer-url "http://www.google.com/"
+ :url "http://www.google.com/chrome"
+ :device {:category :PERSONAL_COMPUTER
+          :name "Personal computer"}
+ :os
+ {:family :OS_X
+  :family-name "OS X"
+  :name "OS X"
+  :producer "Apple Computer Inc."
+  :producer-url "http://www.apple.com/"
+  :url "http://en.wikipedia.org/wiki/Mac_OS_X"
+  :version
+  {:bug-fix "6"
+   :extension ""
+   :groups ["10" "11" "6"]
+   :major "10"
+   :minor "11"
+   :version "10.11.6"}}
+ :type-name "Browser"
+ :version
+ {:bug-fix "3396"
+  :extension ""
+  :groups ["67" "0" "3396" "99"]
+  :major "67"
+  :minor "0"
+  :version "67.0.3396.99"}}
+```
+
+So we've ended up with a single function and just four classes. Looks solid,
+doesn't it?
+
+
+
+
+
+
+
+
+
+
 
 Task
 
