@@ -40,22 +40,22 @@ Gecko) Chrome/67.0.3396.99 Safari/537.36")
 
   OperatingSystem
   (->clj [os]
-    {:family (->clj (.getFamily os))
-     :family-name (.getFamilyName os)
-     :name (.getName os)
-     :producer (.getProducer os)
+    {:family       (->clj (.getFamily os))
+     :family-name  (.getFamilyName os)
+     :name         (.getName os)
+     :producer     (.getProducer os)
      :producer-url (.getProducerUrl os)
-     :url (.getUrl os)
-     :version (->clj (.getVersionNumber os))})
+     :url          (.getUrl os)
+     :version      (->clj (.getVersionNumber os))})
 
   VersionNumber
   (->clj [ver]
-    {:bug-fix (.getBugfix ver)
+    {:bug-fix   (.getBugfix ver)
      :extension (.getExtension ver)
-     :groups (.getGroups ver)
-     :major (.getMajor ver)
-     :minor (.getMinor ver)
-     :version (.toVersionString ver)})
+     :groups    (.getGroups ver)
+     :major     (.getMajor ver)
+     :minor     (.getMinor ver)
+     :version   (.toVersionString ver)})
 
   java.lang.Enum
   (->clj [e]

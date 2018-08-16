@@ -486,13 +486,13 @@ be:
 
   OperatingSystem
   (->clj [os]
-    {:family (->clj (.getFamily os))
-     :family-name (.getFamilyName os)
-     :name (.getName os)
-     :producer (.getProducer os)
+    {:family       (->clj (.getFamily os))
+     :family-name  (.getFamilyName os)
+     :name         (.getName os)
+     :producer     (.getProducer os)
      :producer-url (.getProducerUrl os)
-     :url (.getUrl os)
-     :version (.getVersionNumber os)}))
+     :url          (.getUrl os)
+     :version      (.getVersionNumber os)}))
 ```
 
 And the last one for versioning:
@@ -502,12 +502,12 @@ And the last one for versioning:
 
   VersionNumber
   (->clj [ver]
-    {:bug-fix (.getBugfix ver)
+    {:bug-fix   (.getBugfix ver)
      :extension (.getExtension ver)
-     :groups (.getGroups ver)
-     :major (.getMajor ver)
-     :minor (.getMinor ver)
-     :version (.toVersionString ver)}))
+     :groups    (.getGroups ver)
+     :major     (.getMajor ver)
+     :minor     (.getMinor ver)
+     :version   (.toVersionString ver)}))
 ```
 
 In versioning map, we return components for a version number in separated fields
@@ -540,22 +540,22 @@ a single one.
 
   OperatingSystem
   (->clj [os]
-    {:family (->clj (.getFamily os))
-     :family-name (.getFamilyName os)
-     :name (.getName os)
-     :producer (.getProducer os)
+    {:family       (->clj (.getFamily os))
+     :family-name  (.getFamilyName os)
+     :name         (.getName os)
+     :producer     (.getProducer os)
      :producer-url (.getProducerUrl os)
-     :url (.getUrl os)
-     :version (->clj (.getVersionNumber os))})
+     :url          (.getUrl os)
+     :version      (->clj (.getVersionNumber os))})
 
   VersionNumber
   (->clj [ver]
-    {:bug-fix (.getBugfix ver)
+    {:bug-fix   (.getBugfix ver)
      :extension (.getExtension ver)
-     :groups (.getGroups ver)
-     :major (.getMajor ver)
-     :minor (.getMinor ver)
-     :version (.toVersionString ver)})
+     :groups    (.getGroups ver)
+     :major     (.getMajor ver)
+     :minor     (.getMinor ver)
+     :version   (.toVersionString ver)})
 
   java.lang.Enum
   (->clj [e]
@@ -622,13 +622,105 @@ It was the first coding session in that book. Do you feed excited? I've got more
 interesting things for you.
 
 
-
-
-
-
-
-
 Sanitize HTML
+
+Moving on to the second class, we will talk in sanitizing HTML which is tricky
+topic. It involves working with XML documents and XPath expression.
+
+The need to sanitize HTML may occur if you show text fetched from RSS feeds or
+miscellaneous web-crawlers. Maybe, your commenting system allows users to input
+their text with some subset of HTML. Or if it is a service for developers, most
+likely it supports Makrdown which compiles to HTML.
+
+So what is the need to filter HTML data? Because if such a data comes from
+source you cannot trust, there are dozens of ways to attack a user who is goint
+to view it.
+
+Obviosly, the threat number one is `<script>` tags. There might be plenty of
+malicious code: mining Bitcoin on you machine, redirecting you to online casino
+sites, stealing cookies.
+
+CSS styles also carry inline Javascript sometimes to calculate width of a
+page. There is no guarantee somebody didn't put weird code there.
+
+Such attributes as `onclick` run Javascript code once you click on an
+element. Other ones e.g. `onmouseover` are triggered just by moving a mouse
+pointer upon them.
+
+Iframes may show ads or let you run Javascrip that belongs to a malicious site.
+
+In short words, unfiltered HTML is a huge security hole. So you'd better not to
+accept any user input untill you armed the server with tools to fiter it.
+
+In this class, I'll talk mostly on HTML data fetched from RSS or Atom
+feeds. Usualy it represents a teaser for a full blog post and consists of common
+HTML tags: headers, paragraps, links and images. For example:
+
+```html
+TODO
+```
+
+There is a bunch of problems in this sample fragment, namely:
+
+1. The image tag brings attributes that we don't need (`data-type`, `data-load`)
+2. The same image has got width and height attributes which we don't need since
+   the layout of your page differs from the origin.
+3. The image is has got relative URL. If we show it on our server, it will
+   either return 404 reponse or show another image.
+4. The same remarks for the `<a>` tag: excess attributes, relative URL.
+5. We don't want tables to appear in the text.
+6. There should be a way to get bare text without any tags.
+7. We should preserve iframes which reference YouTube embedded player.
+
+[owasp-site]:https://github.com/OWASP/java-html-sanitizer
+[jsoup-site]:https://jsoup.org/
+
+To solve all of them, let's google for a stable, prooven Java library that deals
+with HTML. These are [OWASP Java HTML Sanitizer][owasp-site] and [Jsoup][]. I've
+have worked with both of them and found the latter a bit more friendly although
+it is a matter of personal attitute. We will go on with Jsoup in that session.
+
+Add the library into the project:
+
+```clojure
+:dependencies [;; some deps
+               [org.jsoup/jsoup "1.11.3"]]
+```
+
+Add a separate namespace so none of other modules can access Jsoup
+directly. Here is a draft:
+
+```clojure
+(ns project.sanitize
+  (:import org.jsoup.Jsoup
+           (org.jsoup.safety Whitelist Cleaner)
+           org.jsoup.nodes.Entities$EscapeMode))
+```
+
+These are classes we will need to complete the task.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Sometimes, complicated business logic require some tags with the same name be
+either kept or dropped depending on their attributes.
+
+
+
+
+
+
+
+
 
 task
 
