@@ -600,28 +600,31 @@ A quick test:
   :version "67.0.3396.99"}}
 ```
 
-So we've ended up with a single function and just four classes. Looks solid,
-doesn't it?
+We've ended up with a single function and just four classes. Looks solid,
+doesn't it? Find the final code on Github.
+
+TODO GitHub.
+
+So we've managed to re-use Java code for our business requirements. I believe
+it's obvious that wrapping even clumsy Java classes is easier than writing
+everything from scratch. If you doubt on that, take a weekend and try to write
+your own User Agent parser in pure Clojure that handles hundlreds of known
+desktops, tables, web-crawlers and TV consoles. This is a matter of months but
+not hours.
+
+The pattern we used here makes recursive Java to Clojure transformation. It
+takes the top-level Java class and builds a tree of maps which's structure
+follows the original branch of Java classes. To add a new class into the play,
+just implement its own logic for Clojure mapping by extending `ToClojure`
+protocol.
+
+It was the first coding session in that book. Do you feed excited? I've got more
+interesting things for you.
 
 
 
 
 
-
-
-
-
-
-
-Task
-
-Phases: library; invoce; parse result
-
-1 The lib
-
-2 sample code
-
-3 result
 
 
 
