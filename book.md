@@ -678,9 +678,10 @@ There is a bunch of problems in this sample fragment, namely:
 To solve all of them, let's google for a stable, prooven Java library that deals
 with HTML. These are [OWASP Java HTML Sanitizer][owasp-site] and [Jsoup][]. I've
 have worked with both of them and found the latter a bit more friendly although
-it is a matter of personal attitute. We will go on with Jsoup in that session.
+it is a matter of personal attitute.
 
-Add the library into the project:
+Jsoup is a generic tool that can do a lot with HTML including sanitazion. We
+will go on with Jsoup in that session. Add the library into the project:
 
 ```clojure
 :dependencies [;; some deps
@@ -694,10 +695,213 @@ directly. Here is a draft:
 (ns project.sanitize
   (:import org.jsoup.Jsoup
            (org.jsoup.safety Whitelist Cleaner)
-           org.jsoup.nodes.Entities$EscapeMode))
+           (org.jsoup.nodes Document)))
 ```
 
-These are classes we will need to complete the task.
+These are all classes we need to complete the task.
+
+You may sanitize documents with Jsoup in several ways. The simpliest one is to
+call static `clean` method with an HTML string and an instance of a `Whitelist`
+class:
+
+```clojure
+(defn sanitize-none
+  [html]
+  (when html
+    (Jsoup/clean html (Whitelist/none))))
+```
+
+A whitelist is an entity that knows how to process tags and attributes. Out from
+the box, Jsoup ships several templates that cover most of the business
+requirements: `none`, `simpleText`, `basic`, `basicWithImages` and
+`relaxed`. Their naming demonstrates how HTML capabilites grow to each
+level. For example, `none` template wipes all the tags and so there is just bare
+text in the end. The `simpleText` one adds some minor tags used mostly for text
+formatting, and so forth: more and more tags and attributes are allowed.
+
+The function `sanitize-none` covers one of the requrements we've discussed
+before. It turns any HTML data to plain text that's great for preview:
+
+```clojure
+(defn _text (sanitize-none html-sample))
+
+TODO
+```
+
+Let's experiment a bit with another template:
+
+```clojure
+(defn sanitize-generic
+  [whitelist html]
+  (when html
+    (Jsoup/clean html whitelist)))
+
+(def sanitize-basic-images
+  (partial sanitize-generic
+           (Whitelist/basicWithImages)))
+
+(sanitize-basic-images html-sample)
+```
+
+The result looks different: now some of HTML entities take their place. Pay
+attention how did we declare `sanitize-basic-images` function. It's just partial
+application of more generic `sanitize-generic`. Since the whole logic of a
+function depends on a single parameter, it is fine to put it at the first place
+and declare as many partials as you wish.
+
+Although pre-defined whitelists are good, they cannot cover everything we
+need. So let's consider the second low-level way of filtering HTML. First, let's
+declare our own whitelist. We will do it in several steps.
+
+Declare tags we'd like to keep, just a vector of strings:
+
+
+```clojure
+
+(def tags-allowed
+  ["a"
+   "b"
+   "blockquote"
+   "br"
+   "code"
+   "h1"
+   "h2"
+   "h3"
+   "h4"
+   "h5"
+   "h6"
+   "i"
+   "iframe" ;; !!!
+   "img"
+   "li"
+   "p"
+   "pre"
+   "small"
+   "span"
+   "strike"
+   "strong"
+   "sub"
+   "sup"
+   "u"
+   "ul"])
+```
+
+A note opposite to `iframe` means this tag is dangerous and we're going to process it manually.
+
+Declare what attributes we'd like to keep, a map of vectors:
+
+```clojure
+(def attrs-allowed
+  {"img"    ["src"]
+   "iframe" ["src" "allowfullscreen"]
+   "a"      ["href"]})
+```
+
+Declare what network protocols. On the top level there is a tag name, then an
+attribute and a list of network schemas:
+
+```clojure
+(def proto-allowed
+  {"a"      {"href" ["http" "https" "mailto" "ftp"]}
+   "img"    {"src"  ["http" "https"]}
+   "iframe" {"src"  ["https"]}})
+```
+
+For example, a link might reference to an HTTP(s) and FTP resources or be an
+email. But an iframe may only reference a secured `https://` resource.
+
+A small wraper to convert a Clojure vector into typed Java array of Strings:
+
+```clojure
+(def ->array (partial into-array String))
+```
+
+Now that with all the data prepared we declare an instance of a `Whitelist`
+class:
+
+```clojure
+(def ^Whitelist whitelist-custom
+  (let [wl (new Whitelist)]
+
+    ;; set tags
+    (.addTags wl (->array tags-allowed))
+
+    ;; set attributes
+    (doseq [[tag attrs] attrs-allowed]
+      (.addAttributes wl tag (->array attrs)))
+
+    ;; set protocols
+    (doseq [[tag mapping] proto-allowed]
+      (doseq [[attr protocols] mapping]
+        (.addProtocols wl tag attr (->array protocols))))
+
+    wl))
+```
+
+What catches the eye here is Clojure code has become very imperative. That's
+normal since we operate on Java ecosystem that is mostly imperative by its
+nature.
+
+Wrap the whitelist with a `Cleaner` class:
+
+```clojure
+(def ^Cleaner cleaner-custom
+  (Cleaner. whitelist-custom))
+```
+
+Here is the function that cleans the source data using our own rules:
+
+```clojure
+(defn sanitize-custom
+  [html page-url]
+  (when html
+    (let [page-url (or page-url "")
+          ^Document doc-src (Jsoup/parse html page-url)]
+      ;; (process-iframes doc-src)
+      (let [^Document doc-out (.clean cleaner-custom doc-src)]
+        (.. doc-out body html)))))
+```
+
+It accepts a raw HTML string and a URL and returns cleaned HTML string. We need
+a source URL to fix relative links so the become absolute. For example, if the
+source page was `http://example.com/pages/story` and there was an image with the
+attribute `src="/images/something.jpeg"`, it becomes
+`src="http://example.com/images/something.jpeg"` what is one of our busines
+requirements.
+
+The double dot macro acts like a chain of calls to the `doc-out`
+varialbe. First, we receive its body which is an instance of an `Element`
+class. Then we take its HTML content of that element as a string calling `html`
+method.
+
+Let's test the function:
+
+```clojure
+(sanitize-custom html-sample "http://example.com/pages/blog.html")
+```
+
+The result would be:
+
+```html
+TODO
+```
+
+This nice, but we havent' dealt with iframes yet. There is commented line in the
+function that is thought to fix it. Jsoup doesn't support conditional statements
+for tags or attributes so we have to process iframes manually.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
