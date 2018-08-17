@@ -695,7 +695,7 @@ directly. Here is a draft:
 (ns project.sanitize
   (:import org.jsoup.Jsoup
            (org.jsoup.safety Whitelist Cleaner)
-           (org.jsoup.nodes Document)))
+           (org.jsoup.nodes Element Document)))
 ```
 
 These are all classes we need to complete the task.
@@ -886,9 +886,193 @@ The result would be:
 TODO
 ```
 
-This nice, but we havent' dealt with iframes yet. There is commented line in the
-function that is thought to fix it. Jsoup doesn't support conditional statements
-for tags or attributes so we have to process iframes manually.
+This is nice, but we havent' dealt with iframes so far. There is commented line
+in the function that signals we're about to fix that. Jsoup doesn't support
+conditional statements for tags or attributes so we have to process iframes
+manually.
+
+Ok, let's uncomment that line and declare a draft version of a function:
+
+```clojure
+(defn process-iframes
+  [^Document doc]
+  (doseq [^Element el (.select doc "iframe")]
+    ;; some logic goes here
+    ))
+```
+
+Now let's discourse for a while. We need to keep only those iframes that
+reference either YouTupe or Coub embedded players. For example:
+
+```html
+
+<iframe width="903" height="508" src="https://www.youtube.com/embed/OhadKfy2RxM" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+
+<iframe src="//coub.com/embed/5oy44?muted=false&autostart=false&originalSize=false&startWithHD=false" allowfullscreen frameborder="0" width="626" height="480" allow="autoplay"></iframe>
+```
+
+So logic would be to get a URL from the `src` attribute and match it against
+regular expression. If it matches any of them, we keep that element in a DOM
+three. When it doesn't, we remove it.
+
+Declare the expressions and add some shortcuts:
+
+```clojure
+(def re-youtube
+  #"(?i)youtube.com/embed")
+
+(def re-coub
+  #"(?i)coub.com/embed")
+
+(defn media-src?
+  [src]
+  (or (re-find re-youtube src)
+      (re-find re-coub src)))
+
+(defn process-iframes
+  [^Document doc]
+  (doseq [^Element el (.select doc "iframe")]
+    (let [src (.absUrl el "src")]
+      (when-not (media-src? src)
+        (.remove el)))))
+```
+
+That's it! So far, our code satisfies all the business requirements. Restricted
+tags and attributes a wiped out. All the links and images addresses are
+absolute. We preserve only those iframes that reference certain media resources:
+
+```clojure
+(sanitize-custom html-sample "http://example.com/pages/blog.html")
+```
+
+The result:
+
+```html
+TODO
+```
+
+Despite the exlanation was a bit log, the final code is suprisengly short. The
+whole module takes just 100 lines:
+
+```clojure
+(ns project.san
+  (:import org.jsoup.Jsoup
+           (org.jsoup.safety Whitelist Cleaner)
+           (org.jsoup.nodes Element Document)))
+
+
+(def tags-allowed
+  ["a" "b" "blockquote" "br" "code"
+   "h1" "h2" "h3" "h4" "h5" "h6"
+   "i" "iframe" "img" "li" "p" "pre"
+   "small" "span" "strike" "strong"
+   "sub" "sup" "u" "ul"])
+
+
+(def attrs-allowed
+  {"img"    ["src"]
+   "iframe" ["src" "allowfullscreen"]
+   "a"      ["href"]})
+
+
+(def proto-allowed
+  {"a"      {"href" ["http" "https" "mailto" "ftp"]}
+   "img"    {"src"  ["http" "https"]}
+   "iframe" {"src"  ["https"]}})
+
+
+(def ->array (partial into-array String))
+
+
+(def ^Whitelist whitelist-custom
+  (let [wl (new Whitelist)]
+
+    (.addTags wl (->array tags-allowed))
+
+    (doseq [[tag attrs] attrs-allowed]
+      (.addAttributes wl tag (->array attrs)))
+
+    (doseq [[tag mapping] proto-allowed]
+      (doseq [[attr protocols] mapping]
+        (.addProtocols wl tag attr (->array protocols))))
+
+    wl))
+
+
+(def ^Cleaner cleaner-custom
+  (Cleaner. whitelist-custom))
+
+
+(def re-youtube
+  #"(?i)youtube.com/embed")
+
+
+(def re-coub
+  #"(?i)coub.com/embed")
+
+
+(defn media-src?
+  [src]
+  (or (re-find re-youtube src)
+      (re-find re-coub src)))
+
+
+(defn process-iframes
+  [^Document doc]
+  (doseq [^Element el (.select doc "iframe")]
+    (let [src (.absUrl el "src")]
+      (when-not (media-src? src)
+        (.remove el)))))
+
+
+(defn sanitize-custom
+  [html page-url]
+  (when html
+    (let [page-url (or page-url "")
+          ^Document doc-src (Jsoup/parse html page-url)]
+      (process-iframes doc-src)
+      (let [^Document doc-out (.clean cleaner-custom doc-src)]
+        (.. doc-out body html)))))
+
+
+(defn sanitize-generic
+  [whitelist html]
+  (when html
+    (Jsoup/clean html whitelist)))
+
+
+(def sanitize-none
+  (partial sanitize-generic
+           (Whitelist/none)))
+
+
+(def sanitize-basic-images
+  (partial sanitize-generic
+           (Whitelist/basicWithImages)))
+```
+
+TODO GitHub link
+
+You may look it through on GitHub.
+
+My congratulations to you if you've been following the line to the end. So far,
+we've learnt how to sanitize HTML reusing Java Jsoup library. The solution looks
+solid and need. It's easy to tweak in different prospectives. Most of the
+configuration is stored in Clojure maps or vectors so allowing or restrictint
+yet another tag would mean just to add or remove it from a collection. It's
+declarative, as functional programmers tend to say. Processing an extra media
+iframe, say Vimeo or VKontakte implies adding just one more regex expression.
+
+To the end of the second class, I believe you've made sure how much power Java
+brings to the scene. But the most part of the practial lessons are still ahead
+of us.
+
+
+
+
+
+
+
 
 
 
