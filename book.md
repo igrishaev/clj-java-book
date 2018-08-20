@@ -1171,12 +1171,14 @@ credentials and probably additional options:
    :password "clj-pass"})
 ```
 
-And a couple of shortcuts:
+And some local shortcuts:
 
 ```clojure
 (def query (partial jdbc/query db))
 
 (def insert! (partial jdbc/insert! db))
+
+(def execute! (partial jdbc/execute! db))
 ```
 
 A quick check:
@@ -1190,7 +1192,56 @@ A quick check:
 What works! So the preparation step is done and we are ready to play with Java
 machinery again.
 
+Generaly speaking the problem we are trying to solve is to establish a seamless
+mapping between the database types and Clojure collections. We will use some
+JDBC helpers and Java classes to make it the mapping better.
 
+The Clojure wrapper around the original Java JDBC brings several protocols that
+let the database know how to treat certain objects. If you extend them wisely,
+you may build a handly connection between a Clojure record and it's binary
+representation in the DB and vice versa.
+
+Let's start with something simple. By default, JDBC desn't know how to process
+`java.net.URL` or `java.util.UUID` that we use often. Every time you'd like to
+write such an object to the database you need to coerce it to a string which is
+fine but a bit annoying.
+
+To teach the database how to treat those classes, extend the `jdbc/ISQLValue`
+protocol as follows:
+
+```clojure
+(extend-protocol jdbc/ISQLValue
+
+  java.net.URL
+  (sql-value [url]
+    (str url))
+
+  java.util.UUID
+  (sql-value [uuid]
+    (str uuid)))
+```
+
+To check if the changes came into play, add new fields to our table and insert
+something there as follows:
+
+```clojure
+(execute! "alter table test add column url text")
+(execute! "alter table test add column uuid text")
+
+(insert! :test {:url (java.net.URL. "http://example.com")
+                :uuid (java.util.UUID/randomUUID)})
+
+(query "select * from test")
+
+({:id 1,
+  :url "http://example.com",
+  :uuid "3e54df1f-b961-4303-a512-5485044a3576"})
+```
+
+Both types have been transformed successfuly.
+
+So far, it was simple because everything we've done was coercing objects to a
+string.
 
 
 
