@@ -1369,8 +1369,50 @@ Now you may pass these `enum-X` values into queries:
 
 Blue, as expected.
 
+Since you are familiar with `PGObject`, let's bring one of the main Postgres
+features to Clojure. I'm talking about `json(b)` type. In the latest Postgres
+releases you are welcome to store JSON data not as a plain string but a
+structured type. There are dozens of functions and operators to query its
+subfields, merge two objects into one, etc. The `jsonb` type even stores its
+body as a binary structure rather than a string so most of the operations
+perform really fast.
+
+Personaly, I'm not a big fan of storing everything in JSON. Strict schema is the
+main benefit of Postgres so using JSON a lot quickly turns your database into
+MongoDB. You may easily end up with such a situation when one half of your JSON
+dataset has certain field but the rest doesn't. Scanning the whole database with
+a script is annoying and frigile.
+
+On the other hand, in some cases you may succseed by dumping some minor data
+into a `json` column. A good example might be working with PayPal
+notifications. When a user does something, PayPal triggers a handler on your
+server that we usualy call a webhook. PayPal sends plenty of data in such a
+notification. There might be up to 30 fields to specify all the user info, their
+local and business address, product info, tax info and so forth.
+
+Depending of a kind of a business event, a set of fields may vary. Maintaning a
+SQL table with 30+ columnds would be a mess. The better approach is to take only
+the most important fields from that set (user name, product ID, sum) and save
+them in proper columds. But to prevent the rest of the data from being lost, you
+may just dump it into the `json` column. If it turns out you need more info out
+from there, you will solve it with a couple of SQL lines.
+
+The following example highlights how you can detach a nested JSON field into a
+separate column:
+
+```sql
+alter table ipns add column user_email text;
+udpate ipns set user_email = data#>>'{user,email}';
+```
+
+The great idea would be to read and write JSON using CLojure maps. Let's add a
+new column to our test table and extend certain protocols:
+
+```clojure
+(execute! "alter table test add column data jsonb")
 
 
+```
 
 
 
