@@ -1238,10 +1238,154 @@ something there as follows:
   :uuid "3e54df1f-b961-4303-a512-5485044a3576"})
 ```
 
-Both types have been transformed successfuly.
+Both types have been transformed successfuly. So far, it was simple because
+everything we've done was coercing objects to a string.
 
-So far, it was simple because everything we've done was coercing objects to a
-string.
+The things start getting harder when non-string based types come into play. Take
+dates, for example. Each database backend stores them in their own way so
+squashing a date into a string won't work.
+
+By default, JDBC returns dates from queries without troubles:
+
+```clojure
+(execute! "alter table test add column created_at timestamp default now()")
+
+(query "select * from test")
+
+({:id 1,
+  :url "http://example.com",
+  :uuid "3e54df1f-b961-4303-a512-5485044a3576",
+  :created_at #inst "2018-08-20T14:30:31.748138000-00:00"})
+```
+
+But passing a date as a parameter...
+
+```clojure
+(insert! :test {:created_at #inst "2017-01-01"})
+```
+
+...causes an error:
+
+```
+PSQLException Can't infer the SQL type to use for an instance of
+java.util.Date.  Use setObject() with an explicit Types value
+to specify the type to use.
+org.postgresql.jdbc.PgPreparedStatement.setObject (PgPreparedStatement.java:973)
+```
+
+This looks a bit inconsistent but let's fix it. JDBC awaits for a special
+SQL-flavored class `java.sql.Timestamp`. Turning one type to another is done by
+converting the source date into milliseconds and restoring the type we need from
+them:
+
+```clojure
+(extend-protocol jdbc/ISQLValue
+
+  java.util.Date
+  (sql-value [val]
+    (java.sql.Timestamp. (.getTime val))))
+```
+
+Now, the native Date class should work:
+
+```clojure
+(insert! :test {:created_at #inst "2017-01-01"})
+
+({:id 3,
+  :url nil,
+  :uuid nil,
+  :created_at #inst "2017-01-01T00:00:00.000000000-00:00"})
+```
+
+Another example of inconsistancy with types in JDBC is when you deal with DB
+enum values. In Postgres, enums are special type that may have only declared
+values. Let's create a simple enum type bound to a new column:
+
+```clojure
+(execute! "create type type_color as enum ('red', 'green', 'blue')")
+(execute! "alter table test add column color type_color")
+(execute! "update test set color = 'red'")
+(query "select id, color from test")
+
+({:id 1, :color "red"}
+ {:id 2, :color "red"}
+ {:id 3, :color "red"})
+```
+
+That works fine, all the color values are strings as expected. But trying to
+insert a new row...
+
+```clojure
+(insert! :test {:color "blue"})
+```
+
+...causes an error:
+
+```
+PSQLException ERROR: column "color" is of type type_color but expression is of type character varying
+  Hint: You will need to rewrite or cast the expression.
+  Position: 37  org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse (QueryExecutorImpl.java:2476)
+```
+
+This is because JDBC treats `type_color` type as something that really differs a
+string. To send a enum value into the dababase, we need to wrap it with a
+special `PGObject` class.
+
+`PGObject` is a low-level object that represents Postres-specific value. It has
+just two meaningful fields: a type and and its value, both strings. In the
+beginning of our module, add a new import line:
+
+```clojure
+(:import org.postgresql.util.PGobject)
+```
+
+and create a bit of wrappers:
+
+```clojure
+(defn ->pgobject
+  [type value]
+  (doto (PGobject.)
+    (.setType type)
+    (.setValue value)))
+
+(def ->color (partial ->pgobject "type_color"))
+
+(def enum-R (->color "red"))
+(def enum-G (->color "green"))
+(def enum-B (->color "blue"))
+```
+
+Now you may pass these `enum-X` values into queries:
+
+```clojure
+(insert! :test {:color enum-B})
+
+({:id 4,
+  :url nil,
+  :uuid nil,
+  :created_at #inst "2018-08-20T15:40:13.042937000-00:00",
+  :color "blue"})
+```
+
+Blue, as expected.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
