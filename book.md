@@ -186,6 +186,7 @@ it does, the days and weeks might be taken to overcome it. Again, we will rely
 on prooven Java solutions. As a small bonus, I'll show how to deal with treaky
 business rules on media resources.
 
+;; TODO no gis
 
 In the next chapter, let's talk about how to extend your JDBC driver to let it
 work with non-primitive data types. I consider this chapter being quite
@@ -1057,7 +1058,7 @@ You may look it through on GitHub.
 
 My congratulations to you if you've been following the line to the end. So far,
 we've learnt how to sanitize HTML reusing Java Jsoup library. The solution looks
-solid and need. It's easy to tweak in different prospectives. Most of the
+solid and neet. It's easy to tweak in different prospectives. Most of the
 configuration is stored in Clojure maps or vectors so allowing or restrictint
 yet another tag would mean just to add or remove it from a collection. It's
 declarative, as functional programmers tend to say. Processing an extra media
@@ -1069,9 +1070,125 @@ of us.
 
 
 
+Boosting up your JDBC driver
 
+In this class, we will turn to the database facilities. Most likely your
+application works with some sort of a database. There are plenty of DB types
+nowadays. For example, such prooven relational systems as MySQL or Postgres have
+been developed for decades; modern non-relational Mongo or CouchDB; even
+Clojure-aimed Datomic that ships as many Clojure-related features to the schene
+as possible.
 
+Having a layer of flexible abstractions above a low-level, system-depended
+driver is crutial. The move features your database module brings, the less code
+you will have in the rest of the codebase. It's important to not fall into
+constructing your own ORM since the complexety will beat you whereas the
+business features won't progress.
 
+In this chapter, I'll explain how to add more features to the standard JDBC
+driver in conjunction with PostgreSQL backend. Both technologies have passed a
+long way of development. Postgres is a powerful database with dozens of features
+and flexible data types. It is a free and open-source solution.
+
+JDBC and its Clojure wrapper provide genearal APIs to let you work with any DB
+backend using the same approach. At first glanse, the API look a bit clumsy, but
+the reason of that is JDBC supports huge veriaty of backends and their versions
+plus legacy support.
+
+Let's get started with the database module in the project. I believe you have
+PostgreSQL installed on your local machine. If not, install it with your package
+manager either with
+
+```bash
+sudo apt-get install postgresql
+```
+
+or
+
+```bash
+brew install postgresql
+```
+
+[pg-download]:https://www.postgresql.org/download/
+
+depending on if you use Linux or Mac. In case you've got Windows desktop or
+something went as not expected, visit the [official Download page][pg-download]
+for the latest info.
+
+Add the JDBC wrapper and the driver into dependencies:
+
+```clojure
+[org.clojure/java.jdbc "0.6.1"]
+[org.postgresql/postgresql "42.1.3"]
+```
+
+These two lines highlight the very architecture of the database access. JDBC
+wrapper (`java.jdbc`) provides top-level API to query the database whereas the
+driver (`postgresql`) knows to perform againts specific backend. For MySQL
+you'll need to replace `postgresql` driver dependency with
+
+```clojure
+[org.clojure/java.jdbc "0.6.1"]
+[mysql/mysql-connector-java "8.0.12"]
+```
+
+Let's quickly prepare a new database for our experiments:
+
+```bash
+su - postgres
+
+# create a new DB user; will prompt for a password
+createuser -S -W clj-user
+
+# create a new database which's owner is our user
+createdb -O clj-user clj-db
+
+# login into that database
+psql clj-db clj-user
+
+# create a new table with no meaningful fields so far
+create table test (id serial primary key);
+```
+
+Create a separate Clojure module to keep all the database capabilities in one
+place:
+
+```clojure
+(ns project.db
+  (:require
+   [clojure.java.jdbc :as jdbc])
+```
+
+Declare something that is known for the database spec. It's a map with DB
+credentials and probably additional options:
+
+```clojure
+(def db
+  {:dbtype "postgresql"
+   :dbname "clj-db"
+   :host "127.0.0.1"
+   :user "clj-user"
+   :password "clj-pass"})
+```
+
+And a couple of shortcuts:
+
+```clojure
+(def query (partial jdbc/query db))
+
+(def insert! (partial jdbc/insert! db))
+```
+
+A quick check:
+
+```clojure
+(query "select 42 as the_answer")
+
+({:the_answer 42})
+```
+
+What works! So the preparation step is done and we are ready to play with Java
+machinery again.
 
 
 
