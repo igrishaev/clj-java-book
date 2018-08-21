@@ -1625,6 +1625,17 @@ data-processing functions lose metadata belongs to the origin vector. So if you
 take a vector from the query result and process it somehow, you'd better to save
 its metadata somewhere and attach it to the result vector sent to the database.
 
+So far, we've made significant progress on boosting up our database module. We
+established connection between low-level Postgres types and native Clojure maps
+and vectors. What I'd like to highlight again is, the solution looks simple and
+easy to tweak. It takes less than 100 lines and follows the Clojure way. It's
+much more convenient to have a domain that you may tweak from project to project
+focusing on what you exactly need rather than dealing with monstrous ORM
+library.
+
+
+
+
 
 
 
