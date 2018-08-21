@@ -1405,14 +1405,234 @@ alter table ipns add column user_email text;
 udpate ipns set user_email = data#>>'{user,email}';
 ```
 
-The great idea would be to read and write JSON using CLojure maps. Let's add a
-new column to our test table and extend certain protocols:
+The great idea would be to read and write JSON using CLojure maps. We've got to
+plug in a new Clojure library for processing JSON:
 
 ```clojure
-(execute! "alter table test add column data jsonb")
+;; in your project deps
+[cheshire "5.6.3"]
 
-
+;; at the top of our module
+(:require [cheshire.core :as json])
 ```
+Let's add a new column to our test table and extend certain protocols:
+
+[cheshire.core :as json]
+
+```clojure
+(execute! "alter table test add column data json")
+
+(extend-protocol jdbc/ISQLValue
+  clojure.lang.IPersistentMap
+  (sql-value [val]
+    (->pgobject "json" (json/generate-string val))))
+```
+
+Now that you pass a native Clojure map as parameter for `data` field, it will be
+turned into a `PGObject` that Postgres driver knows how to treat. But querying
+the table still returns `PGObject` that is not we expect. There is another
+`IResultSetReadColumn` protocol to specify how the data come from the driver
+should be processed.
+
+```clojure
+(extend-protocol jdbc/IResultSetReadColumn
+  PGobject
+  (result-set-read-column [pgobj metadata index]
+    (pgobj->clj pgobj)))
+```
+
+For each value received from the databse, the protocol calls
+`result-set-read-column` function dispatched from the value type. The function
+accepts an instance of `PGObject` class, a metadata which is some sort of
+additional info and an index of that value as an integer. The function should
+return any Clojure value which will take place in the final result when you
+query the database.
+
+Since `PGObject` represents not only `json(b)` column type but any non-primitive
+entity, it would be a mistake to just parse it as JSON. Instead, we've got to
+implement some sort of sub-dispatching mechanism so only objects with of `json`
+type are processes as JSON. Once you've added other types you'll be able to
+extend the dispatching so other types are processed properly.
+
+In our case, we will dispatch an instance of `PGObject` not by its type
+(obviously, it will always be the same) but rather by a value returned from the
+`(.getType)` method. There is a great opportunity to take a multimethod onboard:
+
+```clojure
+(defmulti pgobj->clj
+  (fn [pgobj]
+    (.getType pgobj)))
+
+(defn- json->clj
+  [pgobj]
+  (-> pgobj .getValue (json/parse-string true)))
+
+(defmethod pgobj->clj "json"
+  [pgobj]
+  (json->clj pgobj))
+
+(defmethod pgobj->clj "jsonb"
+  [pgobj]
+  (json->clj pgobj))
+```
+
+Since both `json` and `jsonb` differs from JDBC prostective, we have to extend
+the `pgobj->clj` multimethid twice for each type. But the logic is the same so
+we wrap it into `json->clj` function to prevent copy-paste.
+
+Quck check:
+
+```clojure
+(insert! :test {:data {:foo {:bar {:baz [1 2 3 true false nil "hello"]}}}})
+
+(query "select id, data from test where data is not null")
+
+({:id 7, :data {:foo {:bar {:baz [1 2 3 true false nil "hello"]}}})
+```
+
+That's a really great feature we've implemented so far. Any data that is
+JSON-serializable can be dumped into the database and restored to the original
+form. Use `json` type for storing fuzzy data that is subject to change over the
+time. But don't abuse that feature since it leads to missing the main benefit of
+PostgreSQL: a strict schema protecting you from dull errors.
+
+The last trick you will learn in that session is how to work with Postgres
+arrays. Postgres provides nice typed arrays with dozens of functions to operate
+on them. Here is a short list of their benefints and use cases.
+
+Arrays are strictly typed. If you declare an array of integers, a string cannot
+take a place in such an array. Instead, a `json`-based vector may contain
+literaly everything inside.
+
+Arrays support special operators to concatenate or subtract them, to find an
+intersection or to check if one array is supset of other. Somethimes it
+simplifyes logic of a query. Imagine you've got a job and a CV entities in the
+database. Let a job has `skills_required` column which is array IDs. So does a
+CV entity that has got a `skills_owns` of the same type.
+
+To select all the CVs that have all the skills specified in a certain job, you
+compose a query in such a way:
+
+```sql
+select job.*
+from
+  cvs cv,
+  jobs job
+where
+  cv.id = ?
+  and cv.skills_required <@ job.skills_owns
+```
+
+The `<@` operator is called "is contained by" and returns true if all the
+elements from the left array are found in the right side array.
+
+If you would like to reduce the strictness of a query, use `&&` "overlaps"
+operator that returns true if both arrays have at least one common element.
+
+One more benefit of using arrays is they prevent you from creating extra bridge
+tables. If you store skills in a separate table you will have to declare two
+bridge tables `jobs_skills` and `cv_skills` and link entitites through them. The
+complexity of the DB schema and queries will increase. But storing skill IDs as
+an `intarray` column will keep the things simple.
+
+Moving to practice, let's create an array field and tie it to a Clojure
+vector. We'll insert at least one row using SQL command since we cannot do that
+yet with Clojure:
+
+```clojure
+(execute! "alter table test add column skill_ids integer[]")
+(execute! "insert into test (skill_ids) values ('{1,2,3}'::integer[])")
+```
+
+Querying the database returns a new object for an array:
+
+```clojure
+(query "select id, skill_ids from test where id = 8")
+
+({:id 8,
+  :skill_ids
+  #object[org.postgresql.jdbc.PgArray 0x4afa8619 "{1,2,3}"]})
+```
+
+For reading arrays from the database we have to extend the
+`IResultSetReadColumn` protocol with the `PgArray` class. Import the class
+first:
+
+```clojure
+(:import org.postgresql.util.PGobject
+         org.postgresql.jdbc.PgArray)
+```
+
+And extend the protocol:
+
+```clojure
+(extend-protocol jdbc/IResultSetReadColumn
+
+  PgArray
+  (result-set-read-column [pgarray metadata index]
+    (let [array-type (.getBaseTypeName pgarray)
+          array-java (.getArray pgarray)]
+      (with-meta
+        (vec array-java)
+        {:sql/array-type array-type}))))
+```
+
+The code just gets Java native array from the `PgArray` and turns it into a
+Clojure vector calling `vec` function. An interesting idea here is to preserve
+the base type of Postgres array in the result's metadata:
+
+```clojure
+(def _res
+  (query "select id, skill_ids from test where id = 8"))
+
+({:id 8, :skill_ids [1 2 3]})
+
+(-> _res first :skill_ids meta)
+
+#:sql{:array-type "int4"}
+```
+
+Turning a Clojure vector into a DB array is a bit tricky. First, we need to
+refer that array type stored in metadata. Second, we have to refer the current
+DB connection to create an instance of the DB array:
+
+```clojure
+(extend-protocol jdbc/ISQLParameter
+
+  clojure.lang.IPersistentVector
+  (set-parameter [val stmt ix]
+    (let [conn (.getConnection stmt)
+          array-java (into-array Object val)
+          array-type (-> val meta :sql/array-type)
+          array-pg (.createArrayOf conn array-type array-java)]
+      (.setArray stmt ix array-pg))))
+```
+
+A quick check:
+
+```clojure
+(insert! :test {:skill_ids ^{:sql/array-type "int4"} [10 20 30]})
+
+(query "select id, skill_ids from test where id = 9")
+
+({:id 9 :skill_ids [10 20 30]})
+```
+
+By the way, we may skip the metadata when passing a vector but JDBC still
+handles the type properly. But to prevent weird things from happening, it's
+better to specify the type anyway. Pay attention that most of the
+data-processing functions lose metadata belongs to the origin vector. So if you
+take a vector from the query result and process it somehow, you'd better to save
+its metadata somewhere and attach it to the result vector sent to the database.
+
+
+
+
+
+
+
+
+
 
 
 
