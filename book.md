@@ -1628,10 +1628,251 @@ its metadata somewhere and attach it to the result vector sent to the database.
 So far, we've made significant progress on boosting up our database module. We
 established connection between low-level Postgres types and native Clojure maps
 and vectors. What I'd like to highlight again is, the solution looks simple and
-easy to tweak. It takes less than 100 lines and follows the Clojure way. It's
-much more convenient to have a domain that you may tweak from project to project
-focusing on what you exactly need rather than dealing with monstrous ORM
-library.
+easy to tweak. THe whole code takes less than 100 lines and follows the Clojure
+way.
+It's much more convenient to have a domain that you may tweak from project
+to project focusing on what you exactly need rather than dealing with monstrous
+ORM library.
+
+
+Java IO Streams
+
+In that chapter, we will work a lot with IO operations. I'm going to consider a
+case when you need to process huge amoints of data flows through the network.
+
+As we discussed before, Clojure is a guest system that doesn't try to implement
+low-level capabilitites of its host. Streaming data from remote resources is one
+of such things that Clojure cannot perform by design. Instead, Java provies rich
+capabilities for any imaginable IO operation. So to perform accurate IO in
+Clojure we've got to borrow some Java stuff to the project.
+
+Imagine a zipped CSV file with about 7 millions records somewhere on the
+server. You need to download and process all the data from it. Probably, your
+first steps would be to download an arhive, then unpack it, abd then process a
+file. That's alright for a quick and draft solution when you are only interested
+in how to make it work.
+
+In general, this step-by-step algorithm suffers from long blocking
+operations. Downloading a 600 Mb file will probably take a couple of
+minutes. Extracting 6 Gb file would take about the same time. When a program
+stats, it should check if a file was already downloaded to prevent doing it
+again. It also should clean all the traces left on disk afterwards.
+
+Another pitfall would be to rely a lot on such shell utilities as `wget`,
+`unzip`, `sed` or whatever. Although most of them are really piece of art, it
+would be difficult to embed them into Clojure code and build the pipeline. In
+fact, even minor usage of shell utilites turn the whole your code into a bash
+script.
+
+The behaviour of shell tools vary on their version and OS family. At the moment
+of writing this, the `unzip` command on my laptop cannot handle the subject file
+which is larger than 2Gb due to some known bug. You just cannot foresee such a
+case when sharing the codebase across Mac and dozes of Linux
+distributions. Instead, the JVM code works as expected on all machines.
+
+What I propose is to process the data on the fly using Java IO
+capabilities. Since CSV is a plain text, there is no need to wait untill whe
+whole file is downloaded and unpacked.
+
+First, we send an HTTP request for that file specifying we would like to
+proccess ins body not as a string but a binary stream. In Java, a stream is an
+abstraction that produces data on demand from some source without flooding the
+whole memory. In our case, such a stream represents binary zip file.
+
+To read zip's content, we wrap the binary stream with a special
+`ZipArchiveInputStream` stream that knows how to treat the input data. The
+archive stream doesn't read the whole input but only few leading bytes to know
+what's inside it. Having that table of content, we may seek for a file we need
+by its name or extension and get a new stream represents exactrly the file we
+were looking for.
+
+To parse CVS data into rows, we pass that last stream into a CSV reader that
+consumes it and fetches native Clojure data structures. Here, we will wrap them
+with a function that cleans unnesseserely fields and coerces values to proper
+types. Finally, those clear final maps will be saved to the database by
+partitions of 1000.
+
+What I would like to hightlight is the whole pipeline starts wirking
+immedietly. A sequence of data that we have in the end is lazy and works on
+demand. For example, you may take just ten first records without downloading the
+whole file. Another benefit is you may show the progress printing how may recors
+have been fetched so far. Finaly, the data doesn't touch the disk so you are not
+bound to free space limitations. If a file grew ten times in size, you would
+still process it.
+
+Let's prepare dependencies we need:
+
+```
+[org.apache.commons/commons-compress "1.5"]
+[clj-http "3.7.0"]
+[org.clojure/data.csv "0.1.4"]
+[org.jsoup/jsoup "1.11.3"]
+[org.clojure/java.jdbc "0.6.1"]
+[org.postgresql/postgresql "42.1.3"]
+```
+
+That's a bit more than we used before. Let's go through the list quickly:
+
+- `commons-compress` is Java library to handle zipped data. Since Java SDK
+  already ships similar functionality out from the box, the external Apache
+  library handles some issues with encoding and thus is more reliable;
+
+- `clj-http` is a great Clojure wrapper around Apache HTTP client to send HTTP
+  requests;
+
+- `data.csv` is a simple but useful library to read and write CSV data;
+
+- `jsoup` is a tool you have met before to clean HTML data. In that chapter, you
+  will find another way to use it.
+
+- `java.jdbc` and `postgresql` are to to write the result into the database.
+
+Prepare a new module with all the stuff imported:
+
+```
+(ns project.io
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.data.csv :as csv]
+            [clojure.java.jdbc :as jdbc]
+            [clj-http.client :as client])
+  (:import java.util.regex.Pattern
+           org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
+           org.apache.commons.compress.archivers.ArchiveEntry
+           org.jsoup.Jsoup))
+```
+
+[npi-files]:http://download.cms.gov/nppes/NPI_Files.html
+
+The file we are going to process is known as "NPI Registry" and represents data
+about American practitioners and healthcare organizations. A link to that file
+is updated monthly and might be found on the official [NPPES site][npi-files].
+
+The first problem we are goint to solve is the URL includes the current month
+name. Although it is trivial to retrive it, the date part is a subject to change
+and has been altering over time. Instead, we will parse the HTML page and find a
+target link using Jsoup.
+
+```clojure
+(defn find-url
+  []
+  (let [doc (.get (Jsoup/connect files-page))
+        selector "a[href~=NPPES_Data_Dissemination_\\w+_\\d{4}\\.zip]"
+        links (.select doc selector)]
+
+    (some-> links
+            first
+            (.absUrl "href"))))
+```
+
+This function returns a full URL we need as a string. At the moment of writing,
+it was `http://download.cms.gov/nppes/NPPES_Data_Dissemination_August_2018.zip`.
+
+To get its binary stream, we send an HTTP request passing special parameter:
+
+```clojure
+(defn get-file-stream
+  [url]
+  (:body (client/get url {:as :stream})))
+```
+
+The result will be a special object represents a stream:
+
+```clojure
+#object[clj_http.core.proxy$java.io.FilterInputStream$ff19274a 0x4b3d87e3 "clj_http.core.proxy$java.io.FilterInputStream$ff19274a@4b3d87e3"]
+```
+
+Then we convert it to a zipped stream:
+
+```clojure
+(defn ->zip-stream
+  [stream]
+  (new ZipArchiveInputStream stream))
+```
+
+Now we try to find a file we need in that stream:
+
+```clojure
+(defn- seek-stream
+  [^ZipArchiveInputStream stream ^Pattern re]
+  (loop []
+    (when-let [^ArchiveEntry entry (.getNextEntry stream)]
+      (let [filename (.getName entry)]
+        (if (re-find re filename)
+          {:name (.getName entry)
+           :size (.getSize entry)
+           :dir? (.isDirectory entry)}
+          (recur))))))
+```
+
+Pay attention we are trying to operate on short functions rather than wrapping
+the whole logic into a single one. Keeping things apart helps to maintain
+simplicity which is crutial.
+
+The function takes a zipped stream and a regex patter. It iterates through zip
+entries checking if its name matches the pattern. A zip entry is some sort of
+metadata about a file. Switching to the next entry also shifts an internal
+pointer of a stream indicates where to start reading from.
+
+Iteration stops once we found an entry with appripriate name. The result will be
+either a map with basic entry info or `nil` value meaning we didn't manage to
+find an entry which name satisfies the pattern.
+
+In our case, the filename is `npidata_pfile_20050523-20180812.csv` so the regex
+would be:
+
+```clojure
+(def re-csv #"(?i)_\d{8}-\d{8}\.csv$")
+```
+
+Right after the stream has been aimed to a proper file, let's process the data
+with a CSV reader:
+
+```clojure
+(defn read-csv
+  [stream]
+  (let [reader (io/reader stream)
+        rows (csv/read-csv reader)
+        header (map clean-header-field (first rows))]
+    (for [row (rest rows)]
+      (zipmap header (map clean-row-field row)))))
+```
+
+First, it reads the first header line and turns its names into keywords passing
+them through `clean-header-field` which is:
+
+```
+(defn clean-header-field
+  [field]
+  (-> field
+      str/trim
+      str/lower-case
+      (str/replace #"[^a-z0-9 _]" "")
+      (str/replace #"\s+" "_")
+      keyword))
+```
+
+So the `Entity Type Code` caption becomes `:entity-type-code`.
+
+Another `clean-row-field` function coerces such dummy values as empty strings or
+`"<UNAVAIL>"` to nils:
+
+```clojure
+(defn clean-row-field
+  [field]
+  (when-not (or (= field "") (= field "<UNAVAIL>"))
+    field))
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
