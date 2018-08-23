@@ -36,6 +36,7 @@
 
 (def re-csv #"(?i)npidata_pfile_\d{8}-\d{8}\.csv$")
 
+
 (defn- seek-stream
   [^ZipArchiveInputStream stream ^Pattern re]
   (loop []
@@ -71,3 +72,49 @@
         header (map clean-header-field (first rows))]
     (for [row (rest rows)]
       (zipmap header (map clean-row-field row)))))
+
+
+(defn ->model
+  [row]
+  (select-keys
+   row [:npi
+        :entity-type-code
+        :provider-first-name
+        :provider-credential-text
+        ;; other fields...
+        ]))
+
+
+(defn by-chunks
+  [coll n]
+  (partition n n [] coll))
+
+
+(def db
+  {:dbtype "postgresql"
+   :dbname "clj-db"
+   :host "127.0.0.1"
+   :user "clj-user"
+   :password "clj-pass"})
+
+
+(def insert-multi! (partial jdbc/insert-multi! db))
+
+
+(defn get-models
+  []
+  (let [file-url (find-url)
+        stream-bin (get-file-stream file-url)
+        ztream-zip (->zip-stream stream-bin)
+        entry (seek-stream ztream-zip re-csv)]
+
+    (assert entry (format "file %s not found" re-csv))
+
+    (let [rows (read-csv ztream-zip)]
+      (map ->model rows))))
+
+
+(defn save-models
+  [models]
+  (doseq [chunk (by-chunks models 1000)]
+    (insert-multi! :models chunk)))

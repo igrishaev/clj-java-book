@@ -1818,8 +1818,8 @@ Iteration stops once we found an entry with appripriate name. The result will be
 either a map with basic entry info or `nil` value meaning we didn't manage to
 find an entry which name satisfies the pattern.
 
-In our case, the filename is `npidata_pfile_20050523-20180812.csv` so the regex
-would be:
+A file in archive that we are interested in is called
+`npidata_pfile_20050523-20180812.csv` so the regex would be:
 
 ```clojure
 (def re-csv #"(?i)_\d{8}-\d{8}\.csv$")
@@ -1839,51 +1839,113 @@ with a CSV reader:
 ```
 
 First, it reads the first header line and turns its names into keywords passing
-them through `clean-header-field` which is:
+them through the `clean-header-field` function. I'll omit its declaration since
+it just operates on strings, cleans unnesecery symbols, change the registry and
+so on. For example, the `Entity Type Code` caption becomes `:entity-type-code`.
 
-```
-(defn clean-header-field
-  [field]
-  (-> field
-      str/trim
-      str/lower-case
-      (str/replace #"[^a-z0-9 _]" "")
-      (str/replace #"\s+" "_")
-      keyword))
-```
+Another `clean-row-field` function subsctitutes dummy values like empty strings
+or `"<UNAVAIL>"` to nils.
 
-So the `Entity Type Code` caption becomes `:entity-type-code`.
-
-Another `clean-row-field` function coerces such dummy values as empty strings or
-`"<UNAVAIL>"` to nils:
+The final function takes a map with keywork keys and cleaned vales and returns a
+some business model. In our example, we take just a certain subset of that map
+but in real case we would do something more complicated. We will map a sequence
+of CSV rows on that function to get a sequence of business models.
 
 ```clojure
-(defn clean-row-field
-  [field]
-  (when-not (or (= field "") (= field "<UNAVAIL>"))
-    field))
+(defn ->model
+  [row]
+  (select-keys
+   row [:npi
+        :entity-type-code
+        :provider-first-name
+        :provider-credential-text
+        ;; other fields...
+        ;; TODO fields
+        ]))
 ```
 
+It's time to save our results to the dabase. Inserting models one-by-one
+requires performing 6M inserts which is not good. On the other side, a single
+insert obligates us to collect all the dataset in memory what is exactly we are
+trying to avoid. The golden middleware would be to insert data by chunks, say
+dump each 1000 models into the database.
 
+Here is a short function that takes a lazy sequence and retuns a lazy chunked
+sequence:
 
+```clojure
+(defn by-chunks
+  [coll n]
+  (partition n n [] coll))
 
 
+(by-chunks [1 2 3 4 5] 2)
 
+((1 2) (3 4) (5))
+```
 
+To insert multiple records in the database at once, implement a shortut for
+JDBC:
 
+```clojure
+(def db
+  {:dbtype "postgresql"
+   :dbname "clj-db"
+   :host "127.0.0.1"
+   :user "clj-user"
+   :password "clj-pass"})
 
+(def insert-multi! (partial jdbc/insert-multi! db))
+```
 
+Ok, everything have been implemented so far so it's time to compose a final
+combo. Here is how get a sequence of models:
 
+```clojure
+(defn get-models
+  []
+  (let [file-url (find-url)
+        stream-bin (get-file-stream file-url)
+        ztream-zip (->zip-stream stream-bin)
+        entry (seek-stream ztream-zip re-csv)]
 
+    (assert entry (format "file %s not found" re-csv))
 
+    (let [rows (read-csv ztream-zip)]
+      (map ->model rows))))
+```
 
+Let's fetch some leading models from the server:
 
+```clojure
+(take 3 (get-models))
 
+;; truncated
+({:npi "1679576722"} {:npi "1588667638"} {:npi "1497758544"})
+```
 
+That really works and the data arrives almost immediately. Now imagine you have
+to wait for five minutes before accessing the data. That would be unbearable.
 
+Now save the data into the database by chunks:
 
+```
+(defn save-models
+  [models]
+  (doseq [chunk (by-chunks models 1000)]
+    (insert-multi! :models chunk)))
+```
 
+Of cause, a table `models` with a proper structure should be created in advance
+in the database.
 
+Alright, it was a tough route but we've managed to deal with all the
+pitfals. Thanks to Java IO capabilities that helped us to build the
+pipeline. What might be improved here is handling exceptions on each step and
+logging them. I believen you wouldn't like to fail in the middle of process just
+because one record is corrupted. Another feature would be to load the data in
+parallel using futures or `pmap` to archive perfomance boost. For the rest, the
+subject issue is complete so we move to the next class.
 
 
 
@@ -1925,8 +1987,6 @@ Another `clean-row-field` function coerces such dummy values as empty strings or
 
 
 
-Sometimes, complicated business logic require some tags with the same name be
-either kept or dropped depending on their attributes.
 
 
 
@@ -1936,43 +1996,13 @@ either kept or dropped depending on their attributes.
 
 
 
-task
 
-Phases: library; invoce; result
 
-1. the lib
 
-2. sample code
 
-3. result
 
-Now, deal with iframes YouTube
 
-Now, deal with coub
 
-Conclusion
-
-
-Extend JDBC
-
-Task
-
-Json
-
-PostGis
-
-
-Streams
-
-Intro
-
-The task
-
-Problem
-
-US NPI
-
-binary stream -> zip-stream -> csv-stream -> model stream
 
 
 Process
