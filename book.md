@@ -1948,6 +1948,188 @@ parallel using futures or `pmap` to archive perfomance boost. For the rest, the
 subject issue is complete so we move to the next class.
 
 
+Processes and Browser automation
+
+
+Out final coding session will be about managing processes. As I have mantioned
+before, Clojure is not designed to control systems processes since these are
+obligations of a host system that Clojure relies on. But still, with neat
+Clojure data structues and syntax we may build wrappers for that.
+
+The task we are going to solve is to automate the browser intalled on your
+computer. We would like to have such functions as `goto` or `screenshot` force
+the browser open a web-page and save its content as an image.
+
+To perform those actions, we need to start a command line utility that generaly
+is called a webdriver. For Google Chrome it is `chromedriver`, Firefox has got
+its `geckodriver`, Safari browser brings `safaridriver` out from the box.
+
+When launched, each utility finds its own browser installed on your machine and
+establishes low-level connection with it through a socket. At the same time, it
+starts a web server that handles HTTP REST requests. These requests command the
+browser to perform certain actions, say open a page or click on a link. Under
+the hood, the webdrver translates high-level requests into binary data satisfies
+browser's internal protocol.
+
+The whole pipeline we are going to go through is:
+
+- spawn a new process by launching a webdriver utility;
+- connect to the local HTTP server and init a new session;
+- having that session ID, send some requests to the server to let the browser do
+  what we want;
+- close the session, quit the process.
+
+Some preparations first: we are going to work with Google Chrome and its
+`chromedriver` binary tool. I'm sure you have Chrome installed already. To
+achieve the driver, run in your terminal:
+
+```bash
+brew install chromedriver         # Mac
+sudo apt-get install chromedriver # Ubuntu
+```
+
+[chromedriver-dl]:http://chromedriver.chromium.org/downloads
+
+If you've got Windows system or something went wrong during the installation,
+download precompiled binary from the [official page][chromedriver-dl].
+
+After the installation, try to lauch the driver manually. In case you installed
+it from packages, it should be in you `PATH` variable so you can run it from any
+directory just typing `chromedriver`. If you downloaded the file manually,
+specify the full path which is `/Users/ivan/Downloads/chromedriver` in my
+example.
+
+The following message in the terminal indicates the driver works fine:
+
+```
+Starting ChromeDriver 2.41.578706 (5f725d1b4f0a4acbf5259df887244095596231db) on port 9515
+Only local connections are allowed.
+```
+
+Now quit it and turn back into the editor. Add the dependencies we need:
+
+```
+[clj-http "3.7.0"]
+[cheshire "5.6.3"]
+```
+
+There is everything you are familiar so far. Prepare a new file named `proc.clj`
+with a namespace declaration:
+
+```
+(ns project.proc
+  (:require [clojure.string :as str]
+            [clj-http.client :as client]
+            [cheshire.core :as json])
+  (:import (java.lang ProcessBuilder Process)
+           java.util.Map
+           java.io.File))
+```
+
+One note here, since both `ProcessBuilder` and `Process` classes belong to the
+`java.lang` package they are available by default and there is no need to import
+them. But usualy I keep such declarations to stress the fact the logic of the
+namespace relies on Java capabilities.
+
+The `ProcessBuilder` class is aimed to prepare the further process step by step
+before you start it. At least we need to specify a command with its
+args. Sometimes, setting additional environment variables is required as well as
+STDOUT or STDERR redirection into files. Redirection is crutial since most of
+the tools send plenty of data into both channles especialy when a `--verbose`
+flag is set.
+
+Taking all together, let's write a simple Clojure wrapper:
+
+```clojure
+(defn ^Process
+  proc-start
+
+  [args & [{:keys [env path-out path-err] :as opt}]]
+
+  (let [command (args->command args)
+        builder (ProcessBuilder. command)]
+
+    (when env
+      (set-env builder env))
+
+    (when path-out
+      (.redirectOutput builder (File. path-out)))
+
+    (when path-err
+      (.redirectError​ builder (File. path-err)))
+
+    (.start builder)))
+```
+
+Its logic is really straintforward. First, it turns a collection of args into a
+Java array of strings. It's important since some arguments might be integers,
+e.g port numbers. The function `args->command` is trivial except one thing:
+
+```clojure
+(defn ^"[Ljava.lang.String;"
+  args->command
+  [args]
+  (into-array String (map str args)))
+```
+
+Take a look at its type declaration. We have to specify that the result is Java
+array of strings because otherwise Clojure compiler will complain it cannot
+detect a proper constructor. It happends when there are more then one methods or
+costructors with the same arity to Clojure needs to know their types. This is a
+rare case when type hints are not optional but mandatory.
+
+Next, some imperative code follows. For example, if extra env varialbes were
+passed in an optional map within an `:env` field, we merge them into the
+builder's variables. Here are the functions that do that:
+
+```clojure
+(defn kw->env
+  [kw]
+  (-> kw
+      name
+      (str/replace "-" "_")
+      (str/upper-case)))
+
+
+(defn set-env
+  [^ProcessBuilder builder env]
+  (let [^Map env-map (.environment builder)]
+    (doseq [[key val] env]
+      (.put env-map (kw->env) (str val)))))
+```
+
+Here, `kw->env` is just an utility function that turns `:foo-bar` into
+`"FOO_BAR"` for example.
+
+If any of `:path-out` or `:path-err` strings were passed, we redirect
+corresponding channels into files wrapping then fith the `File` object.
+
+In the end of the function, we spawn a process and return its intance. This is
+the moment when the process starts. If it was a GUI application, its window
+should appear.
+
+The `Process` object provides a few of methods only two of them we are intrested
+in. These are `.destroy` and `.exitValue` to stop the process and check it had
+stopped successfuly. Once we finish communicating with the driver's HTTP
+seriver, we've got to call them.
+
+Here is how I start the driver:
+
+```clojure
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
 
 
 

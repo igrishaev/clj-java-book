@@ -16,4 +16,10 @@
                  [org.clojure/java.jdbc "0.6.1"]
                  [org.postgresql/postgresql "42.1.3"]
 
+                 ;; process
+                 [clj-http "3.7.0"]
+                 [cheshire "5.6.3"]
+
+
+
                  ])
