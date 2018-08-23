@@ -2116,9 +2116,92 @@ seriver, we've got to call them.
 Here is how I start the driver:
 
 ```clojure
+(defn start-chrome
+  []
+  (let [port 9999
+        args ["/Users/ivan/Downloads/chromedriver"
+              (str "--port=" port)
+              "--verbose"]
+        path-out "./chrome-out.txt"
+        path-err "./chrome-err.txt"]
 
+    (proc-start args {:path-out path-out
+                      :path-err path-err})))
 
+(def _proc (start-chrome))
 ```
+
+[w3-webdriver]:https://www.w3.org/TR/webdriver/#list-of-endpoints
+
+Now that the driver is working, I'm gointg to call some of HTTP API to show how
+it works. The Webdriver protocol is not the main subject of our topic so I won't
+dive deep into it. For those of you interested in I highly recommend looking
+through the official [Webdriver documentation][w3-webdriver].
+
+So far, none of Chrome windows have opend because we didn't initiate a
+session. Let's obtain it:
+
+```clojure
+(def base-url "http://127.0.0.1:9999")
+
+(defn make-url [& args]
+  (str/join "/" (into [base-url] args)))
+
+(defn init-session
+  []
+  (-> (client/post
+       (make-url "session")
+       {:as :json
+        :content-type :json
+        :form-params
+        {:desiredCapabilities {}}})
+      :body
+      :sessionId))
+
+(def _sess (init-session))
+```
+
+At the moment, a new black window of Chrome browser should appear. This is
+really magic, isn't it?
+
+The `_sess` varialbe is a long string that represents an automation
+session. Usualy, a webdriver handles only one session at once.
+
+Let's open Wikipedia:
+
+```clojure
+(defn goto-url
+  [session url]
+  (client/post
+   (make-url "session" session "url")
+   {:as :json
+    :content-type :json
+    :form-params {:url url}}))
+
+(goto-url _sess "https://en.wikipedia.org/")
+```
+
+The blank window should load the Wikideia content. Let's search for
+something. To submit something into the seach input, we need to know its
+internal ID first:
+
+```clojure
+(defn find-element
+  [session selector]
+  (-> (client/post
+       (make-url "session" session "element")
+       {:as :json
+        :content-type :json
+        :form-params
+        {:using "xpath" :value selector}})
+      :body
+      :value
+      :ELEMENT))
+
+(def _input (find-element _sess ".//*[@id='searchInput']"))
+```
+
+
 
 
 
