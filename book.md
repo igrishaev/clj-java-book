@@ -2095,7 +2095,7 @@ builder's variables. Here are the functions that do that:
   [^ProcessBuilder builder env]
   (let [^Map env-map (.environment builder)]
     (doseq [[key val] env]
-      (.put env-map (kw->env) (str val)))))
+      (.put env-map (kw->env key) (str val)))))
 ```
 
 Here, `kw->env` is just an utility function that turns `:foo-bar` into
@@ -2182,11 +2182,13 @@ Let's open Wikipedia:
 ```
 
 The blank window should load the Wikideia content. Let's search for
-something. To submit something into the seach input, we need to know its
-internal ID first:
+something. to interact with any element on a page, we need to know its ID
+first. Don't mix it with the `id` HTML attribute. Instead, this is a long string
+that identitifes a DOM node in browser's memory, for example
+"0.5383067151615304-1".
 
 ```clojure
-(defn find-element
+(defn- find-element
   [session selector]
   (-> (client/post
        (make-url "session" session "element")
@@ -2197,87 +2199,124 @@ internal ID first:
       :body
       :value
       :ELEMENT))
-
-(def _input (find-element _sess ".//*[@id='searchInput']"))
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Process
-
-Task
-
-Problem (sh is poor)
-
-Sample code
-
+This function finds an element using XPath expression and returns a long ID. It
+will be a foundation for two high-level wrappers for inputing text and clicking
+on somethinq:
+
+```clojure
+(defn input-text
+  [session selector text]
+  (let [element (find-element session selector)]
+    (client/post
+     (make-url "session" session "element" element "value")
+     {:as :json
+      :content-type :json
+      :form-params {:value (vec text)}})))
+
+(defn click
+  [session selector]
+  (let [element (find-element session selector)]
+    (client/post
+     (make-url "session" session "element" element "click"))))
+```
+
+The following code inputs "Clojure" in a search field and clicks a loupe button:
+
+```clojure
+(input-text _sess ".//*[@id='searchInput']" "Clojure")
+
+(click _sess ".//*[@id='searchButton']")
+```
+
+So the browser is redirected to the `https://en.wikipedia.org/wiki/Clojure`
+page. To quit the session, send a new request:
+
+```clojure
+(defn delete-session
+  [session]
+  (client/delete
+   (make-url "session" session)))
+
+(delete-session _sess)
+```
+
+At this moment, the browser window should dissapear. Remember, the proccess we
+started before still works. If anybody tries to start it again, they will get an
+error saying the post is already used. So we stop the process manually:
+
+```clojure
+(defn stop-process
+  [^Process p]
+  (when (.isAlive p)
+    (.destroy p)
+    (.waitFor p)
+    (println (.exitValue p))))
+
+(stop-process _p)
+```
+
+But forcing a programmer to keep in mind all the resource he or she should
+release aftewards is a bit tedious to them. Moreover, an exception might raise
+somewhere in the middle when calling the API so the process will hang. It would
+be much to create a macros that spawns a process, binds it to local variable and
+stops it no matter if there was exception or not.
+
+```clojure
+(defmacro with-process
+  [[bind & params] & body]
+  `(let [~bind (proc-start ~@params)]
+     (try
+       ~@body
+       (finally
+         (stop-process ~bind)))))
+```
+
+The first argument of that macro is a vector which's fist element stands for a
+loca variable a process instance should be bound to. There rest of the vector
+are parameters to the `proc-start` function and the `body` is an arbitrary
+Clojure code to execute.
+
+```clojure
+(with-process
+  [proc ["chromedriver" "-p" 9999] {:env {:debug 1}}]
+  (let [session (init-session)]
+    (goto-url session "http://exampple.com")
+    ;; any other code
+    (delete-session session)))
+```
+
+[etaoin]:https://github.com/igrishaev/etaoin
+
+By the way, what we have implemented so far is a sceleton of a Selenium-like
+softaware that automates the browsers. Generaly speaking, it works the same way:
+starts a driver's process and sends HTTP requests to the local server. There is
+also a pure Clojure library [Etaoin][etaoin] that implements the official
+Webdriver API. The code snippets from our session are just simplified fragments
+borrowed from the Etaoin's codebase.
 
 
 Conclusion
+
+So the previous session was the last one on that book. I hope that most of the
+readers who have been reading it still have managed to reach these lines. My
+praise to them!
+
+It was a tought material I confess. So far, we've dug through lots of Java
+classes and protocols which is not you usually read in ordinary
+tutorials. Rather than sorting a vector of integers, I tried to bring the very
+teste of production development. This is where pure Clojure fundamentals may
+ruin a bit. Such a code might be not functional at all, it relies on mutable
+objects and their state. It involes reading Javadocs a lot rather than toying
+with nice Clojure data structures. But at least Clojure reduces the pain you
+usualy suffer from working with other languages.
+
+Getting back to the question from the beginning of a book, let me summarize. No,
+you don't have to know Java before you get into Clojure. Yes, professional
+Clojure code relies on Java a lot. But don't be afraid of it. Even going in
+small steps is reasonable when the road goes uphill. So the Clojure way does.
+
+Ivan Grishaev,
+Voronezh, Russia
+2018

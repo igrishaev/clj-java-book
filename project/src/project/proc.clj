@@ -26,7 +26,7 @@
   [^ProcessBuilder builder env]
   (let [^Map env-map (.environment builder)]
     (doseq [[key val] env]
-      (.put env-map (kw->env) (str val)))))
+      (.put env-map (kw->env key) (str val)))))
 
 
 (defn ^Process
@@ -86,7 +86,8 @@
     :content-type :json
     :form-params {:url url}}))
 
-(defn find-element
+
+(defn- find-element
   [session selector]
   (-> (client/post
        (make-url "session" session "element")
@@ -98,10 +99,51 @@
       :value
       :ELEMENT))
 
+
 (defn input-text
-  [session element text]
-  (client/post
-   (make-url "session" session "element" element "value")
-   {:as :json
-    :content-type :json
-    :form-params {:value (vec text)}}))
+  [session selector text]
+  (let [element (find-element session selector)]
+    (client/post
+     (make-url "session" session "element" element "value")
+     {:as :json
+      :content-type :json
+      :form-params {:value (vec text)}})))
+
+
+(defn click
+  [session selector]
+  (let [element (find-element session selector)]
+    (client/post
+     (make-url "session" session "element" element "click"))))
+
+
+(defn delete-session
+  [session]
+  (client/delete
+   (make-url "session" session)))
+
+
+(defn stop-process
+  [^Process p]
+  (when (.isAlive p)
+    (.destroy p)
+    (.waitFor p)
+    (println (.exitValue p))))
+
+
+(defmacro with-process
+  [[bind & params] & body]
+  `(let [~bind (proc-start ~@params)]
+     (try
+       ~@body
+       (finally
+         (stop-process ~bind)))))
+
+
+(comment
+  (with-process
+    [proc ["chromedriver" "-p" 9999] {:env {:debug 1}}]
+    (let [session (init-session)]
+      (goto-url session "http://exampple.com")
+      ;; any other code
+      (delete-session session))))
