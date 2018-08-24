@@ -216,8 +216,40 @@ I believe, there has been said enough to make you being intested. I hope you
 cannot wait to go further. So am I.
 
 
-
 Interop
+
+This chapter brings some fundations about Java interop that we will actively
+reuse during the book. I'm going to highlight basic rules on how to operate on
+Java objects as well as share some good practices on the subject.
+
+Import
+
+Init
+
+Examples
+
+Access methods and fields
+
+Nested classes
+
+dot operator
+
+double dot operator
+
+instance?
+class
+
+into-array
+... Java
+
+Type hints
+
+Extend types
+
+
+https://clojure.org/reference/java_interop
+
+
 
 
 Parsing User Agent header
