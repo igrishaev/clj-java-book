@@ -222,13 +222,169 @@ This chapter brings some fundations about Java interop that we will actively
 reuse during the book. I'm going to highlight basic rules on how to operate on
 Java objects as well as share some good practices on the subject.
 
-Import
+To use a class, you've got to import it first. There are two ways to import a
+class: in a namespace declaration which is desirable and in run-time using
+`import` function.
 
-Init
+```clojure
+(ns com.project.module
+  (:import java.util.File))
+```
 
-Examples
+or
 
-Access methods and fields
+```clojure
+(import 'java.util.File)
+```
+
+Pay attention, in the first example we specify a class without quoting it
+because the whole `ns` statement is a macro so everything inside it is
+quoted. Instead, when calling `import` function in runtime we pass a symbol
+which's name stands for a class we need.
+
+Importing classes on the fly might be a bit confusing and not obvious. It's
+better keep all the imports and requirements in the `ns` declaration at the top
+of a file.
+
+To be imported, a class should present in your classpath. A classpath is a
+special parameter of Java virtual machine. It's a list of paths separated with
+colons where the machine should search classes for. Usualy you don't worry about
+configuring classpath manualy because modern development tools like `lein` or
+`deps.edn` take care of it by their own.
+
+The tools mentioned above scan through a list of dependencies declared in a
+config file. They download required artifacts into a special folder on your
+machine and start JVM passing classpath extended with the libraries you
+specified.
+
+Classes that belong to the `java.lang` package are not required to being
+imported. They are available by default, so `java.lang.String` shortens to just
+`String`.
+
+Creating an instance of a class works in two ways: `new` or trailing dot
+macroses. The `new` form takes a class followed by its arguments. It looks like
+the standard `new` operator in Java. The trailing dot macro requires putting a
+dot at the end of a class name skipping `new` at the begging. As the result,
+it's a bit shorter then the first `new` form.
+
+Let's fixate everything told so far with examples. We will use the standard
+classes distributed with Java SDK by default.
+
+Importing a single class:
+
+```clojure
+(ns project.into
+  (:import java.io.File))
+```
+
+Importing several classes from the same package at once:
+
+```
+(ns project.into
+  (:import java.io.File
+           (java.util Date UUID)))
+```
+
+Pay attention at extra parens around `java.util` path. It's mandatory to put
+them here. They help Clojure reader to not get confused when parsing imports.
+
+Let's initiate some of the classes we've imported:
+
+```clojure
+(def file (File. "/Users/ivan/.emacs"))
+
+;; evaluating the `file` variable in repl prints
+#object[java.io.File 0xbfef89d "/Users/ivan/.emacs"]
+
+(def date (new Date))
+
+;; evaluating `date` returns
+#inst "2018-08-25T08:20:40.412-00:00"
+```
+
+Some Java classes provide static methods. Calling such a method doesn't require
+to create an instace of a class. Access them via slash as follows:
+
+```clojure
+(def uuid (UUID/randomUUID))
+
+#uuid "fb5876a6-b3c6-47dc-89d6-10dafcaf0888"
+```
+
+[java-system]:https://docs.oracle.com/javase/9/docs/api/java/lang/System.html
+
+The standard [System class][java-system] carries plenty of static methods useful
+for general purposes. This class belongs to `java.lang` package ans thus is
+available from everywhere without importing it.
+
+To stop the program completelly call its `exit` method passing an exit
+code. Running it in a REPL session will terminate it.
+
+```clojure
+(System/exit 0)
+```
+
+The `getenv` static methods either returns a single environ varialble or the
+whole map depending on arity (the number of passed parameters):
+
+```clojure
+(System/getenv "HOME")
+"/Users/ivan"
+
+(into {} (System/getenv))
+{"LEIN_VERSION" "2.6.1"
+ "HOME"         "/Users/ivan"
+ "USER"         "ivan"
+ "LEIN_HOME"    "/Users/ivan/.lein"
+ ;; truncated
+ }
+```
+
+In the second case, we convent a Java native map into a Clojure map to make the
+output better.
+
+A simple wrapper to get the current number of seconds since 1 Jan 1970 which
+which also known as Unix timestamp or epoch:
+
+```clojure
+(defn epoch
+  []
+  (quot (System/currentTimeMillis) 1000))
+
+(epoch)
+1535186375
+```
+
+Having an initiated class, usualy you are interested in calling its methods. To
+access an ordinary non-static method, put its name with leading dot at the first
+place of a lisp form followed by the instance and the rest arguments.
+
+Here is how you may know a file's absolute path:
+
+```clojure
+(def file (File. "book.txt"))
+
+(.getAbsolutePath file)
+"/Users/ivan/drafts/project/book.txt"
+```
+
+To check if it really exists:
+
+```clojure
+(.exists file)
+true
+```
+
+Or rename (move) it:
+
+```clojure
+(.renameTo file (File. "/Users/ivan/ready/project/book-ready.txt"))
+true
+```
+
+Fields
+
+
 
 Nested classes
 
