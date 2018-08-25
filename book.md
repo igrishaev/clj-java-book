@@ -382,15 +382,97 @@ Or rename (move) it:
 true
 ```
 
-Fields
+Sometimes, a class may declare a nested class. To access it, put dollar sign
+between their names. For example, if a class `Foo` has a nested class `Bar`, a
+syntax to reach it will be:
+
+```clojure
+(ns ...
+  (:import com.project.Foo$Bar))
+
+(def bar (Foo$Bar. param1 param2))
+```
+
+There is a specil Dot form that acts like a universal access to Java classes. It
+keeps the same syntax structure even for different purposes.
+
+To read a static field:
+
+```clojure
+(. File pathSeparator)
+":"
+```
+
+To call a static method:
+
+```clojure
+(. File createTempFile "temp" ".txt")
+#object[java.io.File 0x4c2544bc "/var/folders/94/rwlfpkhx4n12vfjb0d0kxspw0000gn/T/temp7711291656500566792.txt"]
+```
+
+To call a method of an instance:
+
+```clojure
+(. file getAbsolutePath)
+"/Users/ivan/drafts/project/book.txt"
+```
+
+Or touch a field of an instance. Pay attention at leading hyphen:
+
+```clojure
+(. obj -value)
+;; the same as `obj.value` in pure Java
+```
+
+There is also a `set!` form that works in pair with the dot macro. Use it to
+write a new value to a field:
+
+```clojure
+(set! (. obj -value) 42)
+;; the same as `obj.value = 42` in pure Java
+```
+
+The last two cases with reading and writing fields are not common due to Java
+design patters. Exposing fields to the outter world is considered as bad
+practice. Instead, most of Java programmers provide special methods to regulate
+how a certain field is being gotten or set. Thus, you will call for `(.getValue
+obj)` or `(.setValue obj 42)` more ofthen than accessing raw fields.
+
+The double dot macros acts similar to the single dot form. It chanis results
+between multiple expressions so the next form takes a value procuded in a
+previous form. It is similar to the threading `->` macro that probably you are
+familiar with.
+
+```clojure
+(.. file toPath getFileSystem getClass getName)
+"sun.nio.fs.MacOSXFileSystem"
+```
+
+Under the hood, it turns into a nested extression as follows:
+
+```clojure
+(. (. (. (. (. file toPath) toPath) getFileSystem) getClass) getName)
+```
+
+which is really difficult to read since your eyes have to jump here and there.
+
+Each method in a chain is called on an object reveived from a previous
+method. If any extra arguments are requied, the method expression is put into
+parens:
+
+```clojure
+(.. obj (some-method "foo") (other-method "bar" 42))
+```
 
 
 
-Nested classes
 
-dot operator
 
-double dot operator
+
+
+
+
+
 
 instance?
 class
