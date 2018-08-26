@@ -11,3 +11,5 @@
 (defn epoch
   []
   (quot (System/currentTimeMillis) 1000))
+
+(def file? (partial instance? java.io.File))

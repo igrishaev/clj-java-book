@@ -464,6 +464,81 @@ parens:
 (.. obj (some-method "foo") (other-method "bar" 42))
 ```
 
+To know what class an object belongs to, call `class` function:
+
+```clojure
+(class file)
+java.io.File
+```
+
+Probably you would like to get a class and make some checks, for example if was
+a string path, do this, and if it was a `File` instance, do that. The function
+`instance?` checks if an object is an instance of certain class so it could
+reduce the code. Insead of writing something like that:
+
+```clojure
+(case (class source)
+
+  java.io.File
+  ;; do this
+
+  String
+  ;; do that
+)
+```
+
+you do this:
+
+```clojure
+
+(def file? (partial instance? java.io.File))
+
+(cond
+  (file? source)
+  ;; do this
+
+  (string? source)
+  ;; do that
+  )
+```
+
+which is more readable and neat.
+
+An important note refers to those Java methods that accept arbitrary number of
+arguments. They are marked with ellipsis in Java signatures and represent an
+array of objects when accessing them. A good example is `format` method of the
+`String` class:
+
+```java
+static String    format(String format, Object... args)
+```
+
+This of way of calling such a method in Cojure won't work:
+
+```
+(String/format "%s %s %s" "foo" "bar" "baz")
+```
+
+The exception's message will say `No matching method: format`.
+
+This is because in Clojure terms, the `args` parameters should be passed as a
+single array. It should be a native Java array but not a native Clojure
+collection. To make your life a bit easier, there are already some wrappers that
+do it for you, e.g. `make-array` that turns a Clojure collection into a Java
+typed array:
+
+```clojure
+(String/format "%s %s %s" (into-array ["foo" "bar" "baz"]))
+"foo bar baz"
+```
+
+By default, `into-array` builds an array of `Objects` that satifies the method's
+signature in our case. When you need some certain type, you pass its class as
+the first parameter to that function:
+
+```clojure
+(String/format "%s %s %s" (into-array String ["foo" "bar" "baz"]))
+```
 
 
 
@@ -474,11 +549,6 @@ parens:
 
 
 
-instance?
-class
-
-into-array
-... Java
 
 Type hints
 
