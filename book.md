@@ -2,17 +2,17 @@
 
 Intro
 
+I often hear that question especially from those who are new with
+Clojure. Phasing varies but the meaning is the same:
 
-Many people who have just started with Clojure or just think to start
+> I fell in love with Clojure and would like to program on it on daily
+> basis. But I've got no Java experience in the past. Do I need to know Java?
+> Should I spend some time on learning Java first?
 
-I often hear that question especially from those who are new with Clojure: do I
-need to know Java?
-
-
-I clearly remember that same thoughts have been worried me before I dove into
-the Clojure world. I knew Clojure relies on Java VM havily but unfortunately
-I've got poor Java experience in the past. Just some occational fixes of legacy
-code and one Android app almost completely copy-pasted from public manuals.
+I clearly remember same thoughts have been worried me before I dove into the
+Clojure world. I knew Clojure relies on Java VM havily but unfortunately I've
+got poor Java experience in the past. Just some occational fixes of legacy code
+and one Android app almost completely copy-pasted from public manuals.
 
 Those bits of Java knowledge were not sufficient to feel confident with the
 platform, I thought. How will I tweak the garbage collector? What if I need to
