@@ -533,30 +533,85 @@ typed array:
 ```
 
 By default, `into-array` builds an array of `Objects` that satifies the method's
-signature in our case. When you need some certain type, you pass its class as
-the first parameter to that function:
+signature in our case. When you need an array if some certain type, you pass its
+class as the first parameter to that function:
 
 ```clojure
 (String/format "%s %s %s" (into-array String ["foo" "bar" "baz"]))
 ```
 
+Yet Clojure is a language with dynamic type system its runtime relies on types a
+lot. When it knows that type an object belongs to, it doesn't spend extra time
+on reflection and thus performs faster. There is a way you might help the
+compiler by adding type hints. A hint might be put almost everywhere a variable
+occurs: in parameters, in `let` bindings as well as for result of a function:
 
+TODO
 
+```clojure
+(defn ^String foo
+  [^String aaa ^Number ]
+  (let []
+   ()))
+```
 
+There is no need to put tags everywhere you physically can. The compiler is
+smart enough to make decitions on further type of an expression when there is
+enough metadata about its arguments.
 
+Adding type hints may prevent a programm from getting into a bottleneck. When a
+function is being called constantly, check if it has type hints. It may reduce
+the total time needed to complete the programm significantly.
 
+A type hint may be any class that has been imorted before. But sometimes, some
+complex Java signatures are required for example to specify an array of certain
+type. So the hint takes a form of a string:
 
+```clojure
+(defn ^"[Ljava.lang.String;"
+  args->command
+  [args]
+  (into-array String (map str args)))
+```
 
+-- best practices
 
+One more benefit that tags bring to a project, they are useful to get into the
+codebase quickly. When you operate on ordinary Java primitives and collections,
+a type of a varialbe might be guesses by its name withe ease, e.g. `opt`,
+`params` (usualy a map of options), `items`, `users` (a collection of some
+entitites) or `url`, `path` (a string).
 
+That's fine until you pass a parsed HTML document which is an instance of
+`org.jsoup.nodes.Document` class. A lonely name `doc` won't say anything to a
+programmer who has got to maintain the code. Is it a map, a vector or comes from
+any third-party library? Instead, the `org.jsoup.nodes.Document doc` declaration
+clearly expresses the very nature of the `doc` parameters to it saves plenty of
+time.
 
-Type hints
+Another good practive when dealing with Java interop is to isolate it in a
+separate namespace or even a library if you can affort it. Such a namespace
+should provide clean functions that take and receive Clojure data. Java interop
+is considered as a low-level feature so it is always a subject to change. So if
+anything changed in a namespace's guts, none if other modules would fail.
 
-Extend types
+Usualy, Clojure code that owns Java mixins grows in length because of
+longNamedMethods. As the result, it looks clumsy and might be difficult to
+read. The most undesirable thing that may happen with Clojure code is when it
+turns into Java spagetty full of mitable state. The rule "one namespace per one
+business domain" prevents the codebase from dumping dozens of Java classes all
+together.
 
+-- summary
 
-https://clojure.org/reference/java_interop
-
+So far, we have passed through the most part of Clojure capabilities for Java
+interop. There are still such topics that I didn't mention as proxying and
+reifying classes and interfaces or something more. But this book is not aimed at
+just enumarating features. Instead, everything in that material is about
+practice. I cannot guarantie we will cover all the possible Java interop
+features, but everything you will learn will be done for sure. I persuade to
+start with coding sessions as soon a possible. If any unmentioned feature
+appear, we will deal with it on the fly.
 
 
 
