@@ -2,23 +2,23 @@
 
 Moving on to the second class, we will talk about sanitizing HTML which is a tricky topic. It involves working with XML documents and XPath expression.
 
-The need to sanitize HTML occurs when you fetch it from RSS feeds or parse websites. Or maybe your commenting system allows users to submit their replies flawored with HTML tags. If it's a service for developers, most likely it supports Makrdown which compiles to HTML.
+The need to sanitize HTML occurs when you fetch it from RSS feeds or parse websites. Or maybe your commenting system allows users to submit their replies flavoured with HTML tags. If it's a service for developers, most likely it supports Markdown which compiles to HTML.
 
 ## The problem of raw HTML
 
-Why to filter HTML content? Because if such data comes from a source you cannot trust, there are dozens of ways to attack a user who is about to read it.
+Why filter HTML content? Because if such data comes from a source you cannot trust, there are dozens of ways to attack a user who is about to read it.
 
-Obviosly, the threat number one is `<script>` tags. They can desserve in many ways: mining Bitcoin on you machine, redirecting you to malicious sites, stealing cookies, DDOS'ing somebody, etc.
+Obviously, the threat number one is `<script>` tags. They can deserve in many ways: mining Bitcoin on your machine, redirecting you to malicious sites, stealing cookies, DDOS'ing somebody, etc.
 
-Sometimes, even CSS styles carry inline Javascript to calculate width of a page for example. Such properties as `background-image` may refer a URL so your browser makes HTTP GET requests. There is no guarantee somebody didn't put weird code on the server side.
+Sometimes, even CSS styles carry inline Javascript to calculate the width of a page for example. Such properties as `background-image` may refer a URL to your browser makes HTTP GET requests. There is no guarantee somebody didn't put a weird code on the server side.
 
 Event-based attributes like `onclick` run Javascript code when you click on an element. Other ones e.g. `onmouseover` are triggered just by hovering a mouse pointer on them.
 
-Iframes show any third-party HTML resource and thus include all the Javasctipt or CSS issues mentioned above.
+Iframes show any third-party HTML resource and thus include all the Javascript or CSS issues mentioned above.
 
-In short words, unfiltered HTML is a huge security hole. You should never accept any HTML input untill you arm the server with tools to fiter it.
+In short words, unfiltered HTML is a huge security hole. You should never accept any HTML input until you equip the server with tools to filter it.
 
-In this class, we'll talk mostly about sanitizing HTML data fetched from RSS feeds. Usualy they represent a teaser for a full blog post and consist from common HTML tags: headers, paragraps, links and images. For example:
+In this class, we'll talk mostly about sanitizing HTML data fetched from RSS feeds. Usually, they represent a teaser for a full blog post and consist from common HTML tags: headers, paragraphs, links and images. For example:
 
 ```html
 <img class='thumb-image' data-type='image' data-load='[truncated]'
@@ -55,27 +55,27 @@ There is a bunch of problems in this sample, namely:
 1. The image tag brings attributes that we don't need (`data-type`, `data-load`)
 2. The same image has got width and height attributes which we don't need since
    the layout of your page differs from the origin.
-3. The image is has got relative URL. If we show it on our server, it will
-   either return 404 reponse or show another image.
+3. The image is has got a relative URL. If we show it on our server, it will
+   either return 404 response or show another image.
 4. Links suffer from the same issues: excess attributes, relative URL.
 5. We don't want tables to appear in the text.
-6. There should be a way to get bare text without any tags.
+6. There should be a way to get the bare text without any tags.
 7. We should preserve iframes which reference YouTube embedded player.
 
-To solve all of them, let's google for a stable, prooven Java library that deals with HTML.
+To solve all of them, let's google for a stable, proven Java library that deals with HTML.
 
 ## First steps with Jsoup
 
 [owasp-site]:https://github.com/OWASP/java-html-sanitizer
 [jsoup-site]:https://jsoup.org/
 
-There is a couple of great HTML tools in Java world: [OWASP Java HTML Sanitizer][owasp-site] and [Jsoup][jsoup-site]. I've have worked with both of them and found the latter being a bit more friendly although it is a matter of personal choice. Jsoup can do a lot with HTML including sanitazion. We will go on with it through the session. Add the library into the project:
+There is a couple of great HTML tools in Java world: [OWASP Java HTML Sanitizer][owasp-site] and [Jsoup][jsoup-site]. I've have worked with both of them and found the latter being a bit more friendly although it is a matter of personal choice. Jsoup can do a lot with HTML including sanitation. We will go on with it through the session. Add the library into the project:
 
 ```clojure
 :dependencies [[org.jsoup/jsoup "1.11.3"]]
 ```
 
-Add a separate namespace so none of other modules interacts with Jsoup directly. Here is a draft:
+Add a separate namespace so none of the other modules interacts with Jsoup directly. Here is a draft:
 
 ```clojure
 (ns project.sanitize
@@ -84,9 +84,9 @@ Add a separate namespace so none of other modules interacts with Jsoup directly.
            (org.jsoup.nodes Element Document)))
 ```
 
-These are all classes we need to complete the task.
+These are all the classes we need to complete the task.
 
-You may sanitize documents with Jsoup in several ways. The simpliest one is to call static `clean` method with an HTML string and an instance of a `Whitelist` class:
+You may sanitize documents with Jsoup in several ways. The simplest one is to call the static `clean` method with an HTML string and an instance of a `Whitelist` class:
 
 ```clojure
 (defn sanitize-none
@@ -95,9 +95,9 @@ You may sanitize documents with Jsoup in several ways. The simpliest one is to c
     (Jsoup/clean html (Whitelist/none))))
 ```
 
-A whitelist is an entity that knows how to process tags and attributes. Out from the box, Jsoup ships several templates that cover most of the business requirements: `none`, `simpleText`, `basic`, `basicWithImages` and `relaxed`. Their naming demonstrates how HTML restrictions unwind to each level. For example, `none` template wipes all the tags leaving just bare text. The `simpleText` one keeps minor tags used mostly for text formatting, and so forth: more and more tags and attributes are allowed.
+A whitelist is an entity that knows how to process tags and attributes. Out from the box, Jsoup ships several templates that cover most of the business requirements: `none`, `simpleText`, `basic`, `basicWithImages` and `relaxed`. Their naming demonstrates how HTML restrictions unwind to each level. For example, `none` template wipes all the tags leaving the just bare text. The `simpleText` one keeps minor tags used mostly for text formatting, and so forth: more and more tags and attributes are allowed.
 
-The function `sanitize-none` covers one of the requrements we've discussed before. It turns any HTML data to plain text that's great for preview widgets that do not allow HTML:
+The function `sanitize-none` covers one of the requirements we've discussed before. It turns any HTML data to plain text that's great for preview widgets that do not allow HTML:
 
 ```clojure
 (sanitize-none html-sample)
@@ -133,15 +133,15 @@ The result would be:
 <a rel="nofollow">Read more</a>
 ```
 
-The result looks different: some of HTML entities took their place. But it is a bit ugly because the template dropped all the relative `src` attributes. We have to either to extend the template or resolve the links absolute which is more desirable.
+The result looks different: some of HTML entities took their place. But it is a bit ugly because the template dropped all the relative `src` attributes. We have to either to extend the template or resolve the links absolute which are more desirable.
 
-Pay attention how did we declare `sanitize-basic-images` function. It's just partial application of more generic `sanitize-generic`. Since the whole logic of a function depends on a single parameter, it is fine to put it at the first place and declare as many partials as you want.
+Pay attention to how did we declare `sanitize-basic-images` function. It's just partial application of more generic `sanitize-generic`. Since the whole logic of a function depends on a single parameter, it is fine to put it in the first place and declare as many partials as you want.
 
 The pre-defined whitelists are good for quick and dirty solutions but they cannot cover everything we need. We've got to create our own whitelist.
 
 ## Custom sanitizing logic
 
-We will do it in several steps. Declare tags we'd like to keep as vector of strings:
+We will do it in several steps. Declare tags we'd like to keep as a vector of strings:
 
 
 ```clojure
@@ -175,9 +175,9 @@ Declare the network protocols allowed. On the top level there is a tag name, the
    "iframe" {"src"  ["https"]}})
 ```
 
-For example, an `<a>` element can reference to an HTTP(s) or FTP resources or be an email. But an `<iframe>` references only a secured `https://` resource.
+For example, an `<a>` element can refer to an HTTP(s) or FTP resources or be an email. But an `<iframe>` references only a secured `https://` resource.
 
-A small wraper that converts a Clojure vector into a typed Java array of Strings:
+A small wrapper that converts a Clojure vector into a typed Java array of Strings:
 
 ```clojure
 (def ->array (partial into-array String))
@@ -224,9 +224,9 @@ Here is the function that cleans the source data using our own rules:
         (.. doc-out body html)))))
 ```
 
-It accepts a raw HTML string and its source URL and returns cleaned HTML string. We need the source to fix relative links so they become absolute. For example, if the source page was `http://example.com/pages/story` and there is an image with the attribute `src="/images/something.jpeg"`, it becomes `src="http://example.com/images/something.jpeg"` which is one of our busines requirements.
+It accepts a raw HTML string and its source URL and returns cleaned HTML string. We need the source to fix relative links so they become absolute. For example, if the source page was `http://example.com/pages/story` and there is an image with the attribute `src="/images/something.jpeg"`, it becomes `src="http://example.com/images/something.jpeg"` which is one of our business requirements.
 
-The double dot macro acts like a chain of calls to the `doc-out` varialbe. First, we receive its body which is an instance of an `Element` class. Then we take its HTML content calling `html` method.
+The double dot macro acts like a chain of calls to the `doc-out` variable. First, we receive its body which is an instance of an `Element` class. Then we take its HTML content calling `html` method.
 
 Let's test the function:
 
@@ -248,7 +248,7 @@ The result would be:
 <a href="http://example.com/articles/banchmark.html">Read more</a>
 ```
 
-This looks nice yet we havent' dealt with iframes so far. There is commented line in the function that signals we're about to fix that. Jsoup doesn't support conditional statements for tags or attributes so we have to process iframes manually.
+This looks nice yet we haven't' dealt with iframes so far. There is commented line in the function that signals we're about to fix that. Jsoup doesn't support conditional statements for tags or attributes so we have to process iframes manually.
 
 ## Dealing with Iframes
 
@@ -336,14 +336,14 @@ The result is:
 <iframe src="https://www.youtube.com/embed/OhadKfy2RxM" allowfullscreen> </iframe>
 ```
 
-As you see, the malicios iframe was dropped whereas the YouTube one is still here. Pay attention we allow `allowfullscreen` attribute to take its place in iframe so a user is able to expand a video on the whole screen.
+As you see, the malicious iframe was dropped whereas the YouTube one is still here. Pay attention we allow `allowfullscreen` attribute to take its place in an iframe so a user is able to expand a video on the whole screen.
 
 TODO Github link
 
-Although the exlanations took log, the final code is suprisengly short. The whole module takes less then 100 lines. You are welcome to check it on GitHub.
+Although the explanations took long, the final code is surprisingly short. The whole module takes less than 100 lines. You are welcome to check it on GitHub.
 
 ## Conclusion
 
-So far, we've learnt how to sanitize HTML using Java Jsoup library. The solution looks solid and neet. It's easy to tweak in different prospectives becase the most of configuration is stored in Clojure maps or vectors. Adding or excluding another tag would require to add or remove it from a collection. It's declarative, as functional programmers tend to say. The same is about media resources: to keep Vimeo embedded player in HTML, just add another regular expression.
+So far, we've learnt how to sanitize HTML using Java Jsoup library. The solution looks solid and neet. It's easy to tweak in different prospectives because the most of the configuration is stored in Clojure maps or vectors. Adding or excluding another tag would require to add or remove it from a collection. It's declarative, as functional programmers tend to say. The same is about media resources: to keep Vimeo embedded player in HTML, just add another regular expression.
 
 To the end of the second class, I believe you've become sure about how much power Java brings to the scene. We will use the more in the next lessons.
