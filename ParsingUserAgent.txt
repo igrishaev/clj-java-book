@@ -1,47 +1,40 @@
-# Parsing User Agent header
 
-OK, let's do some coding. The problem we are going solve is the following. Imagine we are developing a sort of analytic system that collects as much information about a user as possible. Businesses prescribe us to store data about users' operations systems, their verson and family, browsers, if they use mobile devices and what exactly (iOS, Android, etc).
+# Parsing User-Agent header
+
+OK, let's do some coding. The problem we are going solve is the following. Imagine we are developing a sort of analytic system that collects as much information about a user as possible. Businesses prescribe us to store data about users' browser and operation system, their version and family if they use mobile devices and what exactly (iOS, Android, etc).
 
 [user-agent]:https://en.wikipedia.org/wiki/User_agent
 
-Most of this information is borrowed from [User-Agent HTTP header][user-agent]. It's a string that brings almost everything we need. Each time a user opens a web-page, their browser sends this string. Here is mine for example, copied from Google Chrome:
+Most of this information is borrowed from [User-Agent HTTP header][user-agent]. It's a string that represents almost everything we need. Each time a user opens a web-page, their browser sends this string. Here is mine, for example, copied from Google Chrome:
 
 ```text
-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like
-Gecko) Chrome/67.0.3396.99 Safari/537.36
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6)
+AppleWebKit/537.36 (KHTML, like Gecko)
+Chrome/67.0.3396.99 Safari/537.36
 ```
 
-The problem with User agent is, it is quite bad organized. For decades of chaotic web-development, browser monufacturers have been dumping more and more details there. What it ended up with, there is no a single and clear rule to parse User agent.
+The problem with User-Agent is, it is quite bad organized. For decades of chaotic web-development, browser manufacturers have been dumping more and more details there. What it ended up with, there is no a single and clear rule to parse User-Agent. Doing that manually is one of those tasks that look simple but quickly turns into a mess. The right decision would be to import a Java library developed for this purpose.
 
-Doing that manually is one of those tasks that look simple but turns into a mess full of crutches. The right decision would be to import a Java library made for this purpose.
-
-The whole process consisits of three stages. The first one, we find a proper library and plug it in into our project. Then we add a new module with code that calls that library. On the third step, we turn the result into habital Clojure structures, usualy a combination of maps and vectors.
+The whole process consists of three stages. At first, we find a proper library and plug it into a project. Then we add a new namespace aimed at wrapping that library. On the third step, we turn the results got from Java into habitual Clojure structures, usually a combination of maps and vectors.
 
 [uadetector-site]: http://uadetector.sourceforge.net/
 
-The library I decided to pick up is [UA Detector][uadetector-site]. It recognizes
-plenty of patterns for desktop computers, mobile devices and web-crawlers
-(Goole, Yahoo, etc). In your `project.clj` file, and the following into the
-`:dependencies` vector:
+## Meet UA Detector
+
+The library I chose for that purpose is [UA Detector][uadetector-site]. It has got hundreds of patterns for desktop computers, mobile devices and web-crawlers (Goole, Yahoo, etc). In your `project.clj` file, and the following into the `:dependencies` vector:
 
 ```clojure
 [net.sf.uadetector/uadetector-core "0.9.10"]
 [net.sf.uadetector/uadetector-resources "2014.10"]
 ```
 
-It looks strange that we added two lines but not just one. This is because of
-the architecture of a library. It consists of two parts: common API and
-resources.
+It looks strange that we added two lines instead of one. This is because of the architecture of a library. It consists of two parts: common API and resources.
 
-The common part, `uadetector-core`, provides high-level API so you call them
-without bothering what's under the hood. The resource part,
-`uadetector-resources`, plays role of a database of known patterns. Such design
-brings certain benefets. If a new portion of User Agent patter occures across
-the Internet, there would be enough to bump only `uadetector-resources`
-dependency keeping `uadetector-core` at the same version.
+The main `uadetector-core` part provides high-level API that interacts with the underlying `uadetector-resources` part which is a database of known patterns. That layered design brings certain benefits. If a new portion of patters occurs across the Internet (thanks to browser manufacturers), there would be enough to update only `uadetector-resources` keeping the same version of `uadetector-core`.
 
-Moving to the step two, let's create a separate namespace where all the Java
-interop will be stored and add some draft lines:
+## Setting up a namespace
+
+Moving to the step two, let's create a separate namespace where all the Java interop will act. Here is the draft:
 
 ```clojure
 (ns project.ua
@@ -55,69 +48,47 @@ interop will be stored and add some draft lines:
   (.parse parser user-agent))
 ```
 
-The main detail here is we created a `parser` object which is an instance of
-`UserAgentStringParserImpl` class. Since most of the Java objects are mutable,
-it is better to keep that object being private so nobody can affect it from the
-outside of our namespace.
+The main detail here is, we created a `parser` object which is an instance of `UserAgentStringParserImpl` class. Since most of the Java objects are mutable, it is better to keep that object being private so nobody can affect it from the outside of the namespace.
 
-The `parse` function accepts a User-Agent string and calls `parse` method
-against that object passing the string as the first argument. Pay attention on a
-type hint. When playing with Java objects, type hints help a lot not only to
-compiler to dispatch a proper method, but also to us, human being.
+The `parse` wrapper function accepts a User-Agent string and calls `.parse` method on the `parser` object passing the string as the first argument. Pay attention to a type hint in the signature. When dealing with Java objects, type hints help not only Clojure to dispatch a proper method but also programmers to guess what is going on.
 
-If we call the function with some sensible user agent sample:
+If we call the function with a sample:
 
 ```
 (def ua-sample
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like
-Gecko) Chrome/67.0.3396.99 Safari/537.36")
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6)
+   AppleWebKit/537.36 (KHTML, like Gecko)
+   Chrome/67.0.3396.99 Safari/537.36")
 
 (def result (parse ua-sample))
 ```
 
-, the result will be an instance of `net.sf.uadetector.UserAgent` class. Its
-string representation looks like this:
+, the result will be an instance of `net.sf.uadetector.UserAgent` class. Its string representation looks like this (truncated):
 
 ```
-#object[net.sf.uadetector.UserAgent 0x3acfecaa "UserAgent [deviceCategory=DeviceCategory [category=PERSONAL_COMPUTER, icon=desktop.png, infoUrl=/list-of-ua/device-detail?device=Personal computer, name=Personal computer], family=CHROME, icon=chrome.png, name=Chrome, operatingSystem=OperatingSystem [family=OS_X, familyName=OS X, icon=macosx.png, name=OS X, producer=Apple Computer, Inc., producerUrl=http://www.apple.com/, url=http://en.wikipedia.org/wiki/Mac_OS_X, versionNumber=VersionNumber [groups=[10, 11, 6], extension=]], producer=Google Inc., producerUrl=http://www.google.com/, type=BROWSER, typeName=Browser, url=http://www.google.com/chrome, versionNumber=VersionNumber [groups=[67, 0, 3396, 99], extension=]]"]
+#object[net.sf.uadetector.UserAgent 0x3acfecaa "UserAgent
+[deviceCategory=DeviceCategory [category=PERSONAL_COMPUTER,
+icon=desktop.png, infoUrl=/list-of-ua/device-detail?device=..."]
 ```
 
-This definiteley not a Clojure structure and thus cannot be used with core
-functions. But the fields inside confirm we managed to parse something. Here,
-the step two ends and we start thinking on how to make the result more
-Clojure-friendly.
+This is definitely not a Clojure structure and thus cannot be used with core functions. Yet it confirms we managed to parse something. Here, step two is finished and we start thinking on how to make the result more Clojure-friendly.
 
-To Clojure recursive pattern
+## To Clojure recursive pattern
 
-Let's remind how do they store data in Java. Usualy it's an instance of a
-top-level class that keeps references to other instances of lower ranks. For
-example, an `UserAgent` object keeps references to the `DeviceCategory` and
-`OperatingSystem` objects. These classes store some other minor data and so
-forth. What we've got here is a tree of objects.
+Let's remind how Java programmers store data. Usually, they create an instance of some top-level class that keeps references to other instances of lower ranks. For example, a `UserAgent` object manages `DeviceCategory` and `OperatingSystem` objects that store other minor data and so forth. What we've got here is a tree of objects.
 
-To convert such a tree to Clojure, let's write a function. It accepts the
-top-level object first and returns a map with keywords for keys and method calls
-to that object for values. If a method returns a primitive data type, say
-integer or string, we keep that as a final value. If there is a complex object,
-we pass it to the same function to take it apart on a map again and so forth
-until all the values are of primitive types.
+To convert such an object tree to Clojure, let's write a function. It accepts the top-level object first and returns a map. Its keys are keywords and values are results of calling methods from the object. If a method returns a primitive data type, say integer or string, we keep it as a final value. If it is still a complex object, we pass it to the same function to take it apart on a map again. So a nested object becomes a nested map.
 
-This is what I name "recursive to-Clojure pattern".
+We continue the process until all the values are of primitive types. This is what I name recursive To Clojure pattern.
 
-The function we are going to write should be not an ordinary `defn` function but
-rather a part of a protocol. Each data type we need to conver to Clojue will
-implement this protocol. It assures the function will operate on only sertain
-types we need but not any possible value.
-
-Here is a protocol we need:
+The function we are going to write is not an ordinary `defn` one but rather a part of a protocol. Each data type we need to convert to Clojure extends this protocol. It assures the function operates on only certain types we need but not any other value. Here is the protocol:
 
 ```clojure
 (defprotocol ToClojure
   (->clj [x]))
 ```
 
-Now import the classes we need to extend with that protocol. In your namespace
-declaration, extend the `(:import ...)` statement as follows:
+Now import the classes we need to extend. In your namespace declaration, extend the `(:import ...)` statement as follows:
 
 ```clojure
 (ns project.ua
@@ -126,21 +97,14 @@ declaration, extend the `(:import ...)` statement as follows:
 
            [net.sf.uadetector
             UserAgent
-            UserAgentType
             VersionNumber
-            DeviceCategory
-            ReadableDeviceCategory$Category
-            UserAgentFamily
-            OperatingSystem]))
+            OperatingSystem
+            DeviceCategory]))
 ```
-
 
 [javadocs-ua]: http://uadetector.sourceforge.net/modules/uadetector-core/apidocs/net/sf/uadetector/UserAgent.html
 
-
-Now extend the top-level `UserAgent` class. To analyse it's atomony, take a look
-at the [Javadocs page][javadocs-ua]. Briefly, we are interested in all the
-getters from that class.
+Now extend the top-level `UserAgent` class. To know more about its anatomy, take a look at the [Javadocs page][javadocs-ua]. Briefly saying, we are interested in all the getters from that class.
 
 ```
 (extend-protocol ToClojure
@@ -160,15 +124,11 @@ getters from that class.
      :version      (.getVersionNumber ua)}))
 ```
 
-If we pass the `result` value into the `->clj` function, we will get a map with
-a structure described above. This is great, but most of the values of that map
-are still complex Java classes. We need to simplify them too.
+If we pass the `result` variable into the `->clj` function, we will get a map with a structure shown above. This is great, but most of the values of that map are still complex Java classes. We need to update them too.
 
-Let's start with the `:device` field. Rather than keeping its value as-is, we
-wrap it with `->clj` and then extend the `DeviceCategory` class with to-Clojure
-implementation.
+## Processing nested objects
 
-Fix the previous `:device` value:
+Let's start with the `:device` field. Rather than keeping it as a Java object, we wrap it into `->clj` and then extend the `DeviceCategory` class so it returns a map. Fix the previous `:device` value:
 
 ```
   UserAgent
@@ -176,7 +136,7 @@ Fix the previous `:device` value:
     {:device       (->clj (.getDeviceCategory ua))
 ```
 
-Extend `DeviceCategory` and it's nested enum type:
+Extend `DeviceCategory` as follows:
 
 ```clojure
 (extend-protocol ToClojure
@@ -186,66 +146,18 @@ Extend `DeviceCategory` and it's nested enum type:
     {:category (->clj (.getCategory dev))
      :name (.getName dev)})
 
-  ReadableDeviceCategory$Category
-  (->clj [cat]
-    (-> cat .name keyword))))
-```
-
-The threading macro (a single arrow) above gets the enum value returned from
-`getCategory` method. Then it takes its name as a string and produces a
-keyword. In Clojure, we usualy deal with keywords rather than strings.
-
-No that, all the branch under the `:device` field consist only of nested Clojure
-maps and primitive values. So you've got the idea: for every Java class we
-describe the way it reflects to the Clojure world.
-
-Moving on to the `:family` field:
-
-```clojure
-
-  ;; wrap with `->clj` that field
-  UserAgent
-  (->clj [ua]
-    {:device       (->clj (.getDeviceCategory ua))
-     :family       (->clj (.getFamily ua))
-
-;; implementation
-
-(extend-protocol ToClojure
-
-  UserAgentFamily
-  (->clj [fam]
-    (-> fam .name keyword)))
-```
-
-Now, the `:family` field is not a Java class but a keyword something like
-`:CHROME`.
-
-Before we finish the rest of it, let's simplify something. You may notice we've
-already faced a enum value a couple of times. These are
-`ReadableDeviceCategory$Category` and `UserAgentFamily` classes. The code that
-turns them into Clojure looks the same so it can be generalized. Who knows how
-many enums we will face in further. Since all the enums exten the basic
-`java.lang.Enum` class, let's extend just it leaving `UserAgentFamily` and other
-custom enums alone:
-
-```clojure
-(extend-protocol ToClojure
-
   java.lang.Enum
   (->clj [e]
     (-> e .name keyword)))
 ```
 
-So our previous implementations for `UserAgentFamily` and
-`ReadableDeviceCategory$Category` might be wiped from the project in addition to
-their imports in the namespace header.
+The `(.getCategory dev)` method returns a enum Java value represented by `net.sf.uadetector.ReadableDeviceCategory.Category` class. There is no need to extend that class exactly because functions that belong to protocols take inheritance into account. Extending just `java.lang.Enum` class which is an ancestor for `ReadableDeviceCategory.Category` would be enough to make sure all the enum values are converted the same.
 
-This is a good sign, by the way. Deleting code means you really do something
-useful. Instead, adding more code makes things worse.
+The whole branch under the `:device` field consists only from nested Clojure maps or primitive values and thus is processed completely.
 
-Let's finish with the rest of our task. Taking apart an operating system would
-be:
+So you've got the idea: for every Java class, we describe the way it reflects the Clojure world. If two classes are similar or share one ancestor, there might be enough to extend just the ancestor.
+
+Let's finish with the rest of the task. Taking apart an operating system would be:
 
 ```clojure
 (extend-protocol ToClojure
@@ -261,7 +173,7 @@ be:
      :version      (.getVersionNumber os)}))
 ```
 
-And the last one for versioning:
+Another statement for versioning class:
 
 ```clojure
 (extend-protocol ToClojure
@@ -276,13 +188,9 @@ And the last one for versioning:
      :version   (.toVersionString ver)}))
 ```
 
-In versioning map, we return components for a version number in separated fields
-and the whole version string in a `:version` field.
+## The final view
 
-The last touches would be to add `->clj` into our `parse` function to it returns
-a Clojure map rather than a Java object. The second thing would be to clean the
-code a bit: remove unused classes and join our `extend-protocol` statements into
-a single one.
+The last touches would be to wrap the result of `parse` function with `->clj` so it starts recursive transformation and returns Clojure data instead of `UserAgent` object. The second thing is to clean the code a bit, for example, to join our `extend-protocol` statements into a single one. Here is the final version:
 
 ```clojure
 (defn parse [^String user-agent]
@@ -328,7 +236,7 @@ a single one.
     (-> e .name keyword)))
 ```
 
-A quick test:
+A quick test if we really receive Clojure data:
 
 ```clojure
 (parse ua-sample)
@@ -366,23 +274,14 @@ A quick test:
   :version "67.0.3396.99"}}
 ```
 
-We've ended up with a single function and just four classes. Looks solid,
-doesn't it? Find the final code on Github.
+We've ended up with a single function and extending just four Java classes. Such a tree might easily be printed, sent through a network as a JSON string or stored in a database that supports JSON values, for example, MongoDB or PostgreSQL.
 
 TODO GitHub.
 
-So we've managed to re-use Java code for our business requirements. I believe
-it's obvious that wrapping even clumsy Java classes is easier than writing
-everything from scratch. If you doubt on that, take a weekend and try to write
-your own User Agent parser in pure Clojure that handles hundlreds of known
-desktops, tables, web-crawlers and TV consoles. This is a matter of months but
-not hours.
+## Conclusion
 
-The pattern we used here makes recursive Java to Clojure transformation. It
-takes the top-level Java class and builds a tree of maps which's structure
-follows the original branch of Java classes. To add a new class into the play,
-just implement its own logic for Clojure mapping by extending `ToClojure`
-protocol.
+So we've managed to reuse Java code for our business requirements. I believe it's obvious that wrapping Java classes is easier than writing everything from scratch. If you doubt on that, take a weekend and try to write your own User-Agent parser in pure Clojure that handles desktops, tables, and TV consoles. This is a matter of months but not hours.
 
-It was the first coding session in that book. Do you feed excited? I've got more
-interesting things for you.
+The pattern we used here transforms Java to Clojure recursively. It takes the top-level Java object and builds a tree of maps which follows the original structure of Java objects. To add a new class into the play, just implement its own logic extending `ToClojure` protocol.
+
+I congratulate that you've passed the first coding session in that book. Do you feel excited? The upcoming tasks are waiting.
