@@ -92,3 +92,43 @@
 (def sanitize-basic-images
   (partial sanitize-generic
            (Whitelist/basicWithImages)))
+
+
+(def html-sample
+  "
+<img class='thumb-image' data-type='image' data-load='[truncated]'
+  width='640' height='480'
+  src='/images/articles/preview.jpg' />
+
+<h1>Benchmark results</h1>
+
+<p>This study compares computer performance across the following platforms:</p>
+
+<ul>
+  <li>Python</li>
+  <li>Go</li>
+  <li>Clojure</li>
+</ul>
+
+<table>
+  <tbody>
+    <thead>
+      <tr>
+        <th>Memory</th>
+        <th>Timing</th>
+        <th>Requests</th>
+      </tr>
+    </thead>
+  </tbody>
+</table>
+
+<a href='/articles/banchmark.html' data-load='[truncated]'>Read more</a>
+
+<iframe width='903' height='508'
+  src='https://www.youtube.com/embed/OhadKfy2RxM' frameborder='0'
+  allow='autoplay; encrypted-media' allowfullscreen>
+</iframe>
+
+<iframe src='https://dangerous.site.com/some/path.html'></iframe>
+
+  ")
