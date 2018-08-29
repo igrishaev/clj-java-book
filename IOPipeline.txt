@@ -2,29 +2,29 @@
 
 In that chapter, we will work a lot with IO operations. I'm going to consider a case when you need to process large amounts of data flow through the network.
 
-As we discussed before, Clojure is a guest system that doesn't try to implement low-level capabilitites of its host. Streaming data from remote resources is one of such things that Clojure cannot perform by design. However, Java provides rich capabilities for any imaginable IO operation. So to perform accurate IO in Clojure we've got to borrow some Java stuff.
+As we discussed before, Clojure is a guest system that doesn't try to implement low-level capabilities of its host. Streaming data from remote resources is one of such things that Clojure cannot perform by design. However, Java provides rich capabilities for any imaginable IO operation. So to perform accurate IO in Clojure we've got to borrow some Java stuff.
 
 ## The task briefing
 
-Imagine a zipped CSV file that holds 7 millions records somewhere on a remove server. You need to download and process all the data from it. Probably, your first steps would be to download an arhive, unpack it, and then process a file. That's alright for a quick and draft solution when you are only interested in how to make it work.
+Imagine a zipped CSV file that holds 7 million records somewhere on a remote server. You need to download and process all the data from it. Probably, your first steps would be to download an archive, unpack it, and then process a file. That's alright for a quick and draft solution when you are only interested in how to make it work.
 
-In general, this step-by-step algorithm suffers from long blocking operations. Downloading a 600 Mb file will probably take a couple of minutes. Extracting 7 Gb file lasts for about the same. When a program stats, it should check if a file was already downloaded to prevent doing it again. It also should clean all the traces left on a disk afterwards.
+In general, this step-by-step algorithm suffers from long blocking operations. Downloading a 600 Mb file will probably take a couple of minutes. Extracting 7 Gb file lasts for about the same. When a program starts, it should check if a file was already downloaded to prevent doing it again. It also should clean all the traces left on a disk afterwards.
 
-Another pitfall would be to rely a lot on shell utilities like `wget`, `unzip`, `sed` or whatever. Although most of them are really piece of art, it is difficult to embed them into Clojure and build the pipeline. In fact, even minor usage of shell utilites turn the whole code into a bash script.
+Another pitfall would be to rely a lot on shell utilities like `wget`, `unzip`, `sed` or whatever. Although most of them are really a piece of art, it is difficult to embed them into Clojure and build the pipeline. In fact, even minor usage of shell utilities turns the whole code into a bash script.
 
-The behaviour of shell tools vary on their version and OS family. At the moment of writing this, the `unzip` command on my laptop cannot handle the subject file which is larger than 2 Gb due to some known bug. You just cannot foresee such a case when sharing the codebase across Mac and dozens of Linux distributions. Instead, the JVM code works as expected on all machines.
+The behaviour of shell tools varies on their version and OS family. At the moment of writing this, the `unzip` command on my laptop cannot handle the subject file which is larger than 2 Gb due to some known bug. You just cannot foresee such a case when sharing the codebase across Mac and dozens of Linux distributions. Instead, the JVM code works as expected on all machines.
 
-What I propose is to process the data on the fly using Java IO capabilities. Since CSV is a plain text, there is no need to wait untill whe whole file is downloaded and unpacked.
+What I propose is to process the data on the fly using Java IO capabilities. Since CSV is a plain text, there is no need to wait until the whole file is downloaded and unpacked.
 
-## Techical proposal
+## Technical proposal
 
-First, we send an HTTP request for that file specifying we would like to proccess ins body not as a string but a binary stream. In Java, a stream is an abstraction that produces data on demand from some source without flooding the whole memory. In our case, such a stream represents a binary zip file.
+First, we send an HTTP request for that file specifying we would like to process its body, not as a string but a binary stream. In Java, a stream is an abstraction that produces data on demand from some source without flooding the whole memory. In our case, such a stream represents a binary zip file.
 
-To read zip's content, we wrap the stream with a special `ZipArchiveInputStream` class that knows how to treat its binary content. The archive stream doesn't read the whole input but only few leading bytes to know what's inside it. Having that table of content, we may seek for a file we need by its name and get its content as a stream again.
+To read zip's content, we wrap the stream with a special `ZipArchiveInputStream` class that knows how to treat its binary content. The archived stream doesn't read the whole input but only a few leading bytes to know what's inside it. Having that table of content, we may seek for a file we need by its name and get its content as a stream again.
 
-To parse CVS data into rows, we pass that stream into a CSV reader that consumes it and fetches native Clojure data structures. Then we wrap them with a function that cleans unnesseserely fields and coerces values to proper types. Finally, those clear final maps will be saved to the database by partitions of 1000.
+To parse CVS data into rows, we pass that stream into a CSV reader that consumes it and fetches native Clojure data structures. Then we wrap them with a function that cleans unnecessarily fields and coerces values to proper types. Finally, those clear final maps will be saved to the database by partitions of 1000.
 
-What I would like to hightlight is the whole pipeline starts wirking immedietly. A sequence of data that we have in the end is lazy and works on demand. For example, you may take just ten leading records without downloading the whole file. Another benefit is you may show the progress printing how may recors have been fetched so far. Finaly, the data doesn't touch the disk so you are not bound to free space limitations. If a file grew ten times in size, you could still process it.
+What I would like to highlight is the whole pipeline starts working immediately. A sequence of data that we have in the end is lazy and works on demand. For example, you may take just ten leading records without downloading the whole file. Another benefit is you may show the progress printing how may records have been fetched so far. Finally, the data doesn't touch the disk so you are not bound to free space limitations. If a file grew ten times in size, you could still process it.
 
 ## Preparing a draft
 
@@ -49,7 +49,7 @@ That's a bit more than we used before. Let's go through the list quickly:
 
 - `jsoup` is a tool you met before to clean HTML data. In that chapter, you will find another way to use it;
 
-- `java.jdbc` and `postgresql` you are familiar with are to to write the results into database.
+- `java.jdbc` and `postgresql` you are familiar with is to write the results into the database.
 
 Prepare a new module with all the stuff imported:
 
@@ -128,9 +128,9 @@ Now we try to find a file we need in that stream. Remember, a zipped stream read
           (recur))))))
 ```
 
-The function takes a zipped stream and a regex pattern. It iterates through zip entries checking if their name matche the pattern. A zip entry is some sort of a metadata about a file. Switching to the next entry also shifts an internal pointer of a stream indicates where to start reading from.
+The function takes a zipped stream and a regex pattern. It iterates through zip entries checking if their name matches the pattern. A zip entry is some sort of a metadata about a file. Switching to the next entry also shifts an internal pointer of a stream indicates where to start reading from.
 
-Iteration stops once we found an entry with appripriate name. The result will be either a Clojure map with basic entry info or `nil` value meaning we didn't manage to find such an entry.
+Iteration stops once we found an entry with an appropriate name. The result will be either a Clojure map with basic entry info or `nil` value meaning we didn't manage to find such an entry.
 
 A file in archive that we are interested in is called `npidata_pfile_20050523-20180812.csv` so the regex would be:
 
@@ -150,9 +150,9 @@ Right after the stream has been pointed to a proper file, let's process its data
       (zipmap header (map clean-row-field row)))))
 ```
 
-First, the function reads the first header line and turns column names into keywords passing them through the `clean-header-field` function. We'll omit its declaration since it just operates on strings, wipes unnesecery symbols, changes the registry and so on. As the result, the `Entity Type Code` caption becomes `:entity_type_code` for example. Another `clean-row-field` function subsctitutes dummy values like empty strings or `"<UNAVAIL>"` to nils.
+First, the function reads the first header line and turns column names into keywords passing them through the `clean-header-field` function. We'll omit its declaration since it just operates on strings, wipes unnecessary symbols, changes the registry and so on. As the result, the `Entity Type Code` caption becomes `:entity_type_code` for example. Another `clean-row-field` function substitutes dummy values like empty strings or `"<UNAVAIL>"` to nils.
 
-The final function takes a cleaned map and builds a business model. In our example, we just take a certain subset of that map but in real case we would do something more complicated: coerce some values to integeres or booleants, unify codes, etc. We map a sequence of CSV rows on that function to get a sequence of business models.
+The final function takes a cleaned map and builds a business model. In our example, we just take a certain subset of that map but in a real case, we would do something more complicated: coerce some values to integers or booleans, unify codes, etc. We map a sequence of CSV rows on that function to get a sequence of business models.
 
 ```clojure
 (defn ->model
@@ -168,9 +168,9 @@ The final function takes a cleaned map and builds a business model. In our examp
 
 ## Save the results
 
-It's time to save our results to the database. Inserting models one-by-one requires 6 millions inserts that is not good. On the other side, a single insert obligates us to collect the whole dataset in memory what is exactly we are trying to avoid. The golden middleware would be to insert data by chunks, say dump each 1000 models into the database.
+It's time to save our results to the database. Inserting models one-by-one requires 7 million inserts that is not good. On the other side, a single insert obligates us to collect the whole dataset in memory what is exactly we are trying to avoid. The golden middleware would be to insert data by chunks, say dump every 1000 models into the database.
 
-Here is a minor function that takes a lazy sequence and retuns a lazy sequence of chunks:
+Here is a minor function that takes a lazy sequence and returns a lazy sequence of chunks:
 
 ```clojure
 (defn by-chunks
@@ -183,7 +183,7 @@ Here is a minor function that takes a lazy sequence and retuns a lazy sequence o
 ((1 2 3) (4 5))
 ```
 
-To insert multiple records in the database at once, implement a shortut for JDBC:
+To insert multiple records in the database at once, implement a shortcut for JDBC:
 
 ```clojure
 (def db
@@ -212,7 +212,7 @@ Ok, with everything has been implemented so far we compose a final combo. Here i
       (map ->model rows))))
 ```
 
-Pay attention we put `assert` to ensure we managed to find a file. Passing `nil` value next will cause null pointer exceptions. Another highlight is, we operate on short functions rather than wrapping the whole logic into a single one. Small functions are great meterial to compose the logic you need. Keeping things apart maintains simplicity which is crutial.
+Pay attention we put `assert` to ensure we managed to find a file. Passing `nil` value next will cause null pointer exceptions. Another highlight is, we operate on short functions rather than wrapping the whole logic into a single one. Small functions are great material to compose the logic you need. Keeping things apart maintains simplicity which is crucial.
 
 Let's fetch some leading models from the server:
 
@@ -245,4 +245,4 @@ Of cause, a table `models` with a proper structure should be created in advance 
 
 ## Conclusion
 
-Alright, it was a tough route but we've managed to succseed. Thanks to Java IO capabilities that helped us to build the pipeline. We could improve the final solution by handling exceptions on each step and logging them. I believe it's wrong to interrupt the whole process just because one record is corrupted. Another feature would be to load the data in parallel using futures or `pmap` for perfomance boost. For the rest, the subject issue is complete so we move to the next class.
+Alright, it was a tough route but we've managed to succeed. Thanks to Java IO capabilities that helped us to build the pipeline. We could improve the final solution by handling exceptions on each step and logging them. I believe it's wrong to interrupt the whole process just because one record is corrupted. Another feature would be to load the data in parallel using futures or `pmap` for a performance boost. For the rest, the subject issue is complete so we move to the next class.
