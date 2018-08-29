@@ -78,9 +78,9 @@
   [row]
   (select-keys
    row [:npi
-        :entity-type-code
-        :provider-first-name
-        :provider-credential-text
+        :entity_type_code
+        :provider_first_name
+        :provider_credential_text
         ;; other fields...
         ]))
 
