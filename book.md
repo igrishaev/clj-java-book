@@ -399,37 +399,3 @@ practice. I cannot guarantie we will cover all the possible Java interop
 features, but everything you will learn will be done for sure. I persuade to
 start with coding sessions as soon a possible. If any unmentioned feature
 appear, we will deal with it on the fly.
-
-
-
-
-
-
-
-
-
-
-
-Conclusion
-
-So the previous session was the last one on that book. I hope that most of the
-readers who have been reading it still have managed to reach these lines. My
-praise to them!
-
-It was a tought material I confess. So far, we've dug through lots of Java
-classes and protocols which is not you usually read in ordinary
-tutorials. Rather than sorting a vector of integers, I tried to bring the very
-teste of production development. This is where pure Clojure fundamentals may
-ruin a bit. Such a code might be not functional at all, it relies on mutable
-objects and their state. It involes reading Javadocs a lot rather than toying
-with nice Clojure data structures. But at least Clojure reduces the pain you
-usualy suffer from working with other languages.
-
-Getting back to the question from the beginning of a book, let me summarize. No,
-you don't have to know Java before you get into Clojure. Yes, professional
-Clojure code relies on Java a lot. But don't be afraid of it. Even going in
-small steps is reasonable when the road goes uphill. So the Clojure way does.
-
-Ivan Grishaev,
-Voronezh, Russia
-2018
