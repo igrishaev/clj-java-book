@@ -1,23 +1,23 @@
 # Processes and Browser automation
 
-Out final coding session is about managing processes. As I have mantioned before, Clojure is not designed to control system processes since these are obligations of a host system that Clojure relies on. But still, with neat Clojure data structues and syntax we will make wrappers for that.
+Out final coding session is about managing processes. As I have mentioned before, Clojure is not designed to control system processes since these are obligations of a host system that Clojure relies on. But still, with neat Clojure data structures and syntax, we will make wrappers for that.
 
-The task we are going to solve is to automate the browser intalled on your computer. The goal is to implement finctions like `goto` or `click` to force a browser to open a web-page or click on a link. They should work directly from REPL.
+The task we are going to solve is to automate the browser installed on your computer. The goal is to implement functions like `goto` or `click` to force a browser to open a web-page or click on a link. They should work directly from REPL.
 
-## What is a webderiver
+## What is a Webdriver
 
-To perform these actions, we need to start a command line utility called a webdriver. It is a general name and every browser has its own implementation. For Google Chrome it is `chromedriver`, Firefox has got its `geckodriver`, Safari browser ships `safaridriver` out from the box.
+To perform these actions, we need to start a command line utility called a Webdriver. It is a general name and every browser has its own implementation. For Google Chrome it is `chromedriver`, Firefox has got its `geckodriver`, Safari browser ships `safaridriver` out from the box.
 
-When launched, the utility finds its browser installed on your computer and establishes low-level connection with it through a socket. At the same time, it starts a web server that handles HTTP REST requests. These requests tell the browser to perform certain actions, say open a page or click on a link. Under the hood, the webdrver translates high-level requests into binary data that satisfy browser's internal protocol.
+When launched, the utility finds its browser installed on your computer and establishes a low-level connection with it through a socket. At the same time, it starts a web server that handles HTTP REST requests. These requests tell the browser to perform certain actions, say open a page or click on a link. Under the hood, the Webdrver translates high-level requests into binary data that satisfy the browser's internal protocol.
 
 The whole pipeline we are going to go through is:
 
-- spawn a new process by launching a webdriver utility;
+- spawn a new process by launching a Webdriver utility;
 - connect to the local HTTP server and init a new session;
 - having that session ID, send some requests to the server;
 - close the session, quit the process.
 
-## Obtaining a webderiver
+## Obtaining a Webderiver
 
 We are going to work with Google Chrome and its `chromedriver` binary tool. I'm sure you have Chrome installed already. To achieve the driver, run in your terminal:
 
@@ -30,7 +30,7 @@ sudo apt-get install chromedriver # in Ubuntu
 
 If you've got Windows system or something went wrong during the installation, download a precompiled binary from the [official page][chromedriver-dl].
 
-After the installation, try to lauch the driver manually. In case you installed it from packages it should be in your `PATH` variable. So you can run it from any directory just typing `chromedriver`. If you downloaded the file manually, specify the full path which is `/Users/ivan/Downloads/chromedriver` in my example.
+After the installation, try to launch the driver manually. In case you installed it from packages it should be in your `PATH` variable. So you can run it from any directory just typing `chromedriver`. If you downloaded the file manually, specify the full path which is `/Users/ivan/Downloads/chromedriver` in my example.
 
 The following message in the terminal indicates the driver works fine:
 
@@ -64,7 +64,7 @@ There is everything you are familiar so far. Prepare a new file named `proc.clj`
 
 One note: both `ProcessBuilder` and `Process` classes belong to the `java.lang` package. They are available by default and thus there is no need to import them. But I keep their declarations to stress the fact the logic of the namespace relies on Java capabilities.
 
-The `ProcessBuilder` class prepares a further process step by step before you launch it. At least we need to specify what we would like to start by passing a command. Sometimes, setting additional environment variables is required as well as STDOUT or STDERR redirection into files. Redirection is crutial because some tools generate plenty of data especialy when `--verbose` flag is set. Those files play the same role as logs. If a process failed, you can investigate a reason by analysing its STDERR dump.
+The `ProcessBuilder` class prepares a further process step by step before you launch it. At least we need to specify what we would like to start by passing a command. Sometimes, setting additional environment variables are required as well as STDOUT or STDERR redirection into files. Redirection is crucial because some tools generate plenty of data especially when `--verbose` flag is set. Those files play the same role as logs. If a process failed, you can investigate a reason by analysing its STDERR dump.
 
 Taking all together, let's write a simple Clojure wrapper:
 
@@ -89,7 +89,7 @@ Taking all together, let's write a simple Clojure wrapper:
     (.start builder)))
 ```
 
-Its logic is really straintforward. First, it turns a collection of args into a Java array of strings. It's important since some arguments might be integers, e.g port numbers. The function `args->command` is trivial except one thing:
+Its logic is really straightforward. First, it turns a collection of args into a Java array of strings. It's important since some arguments might be integers, e.g port numbers. The function `args->command` is trivial except for one thing:
 
 ```clojure
 (defn ^"[Ljava.lang.String;"
@@ -98,9 +98,9 @@ Its logic is really straintforward. First, it turns a collection of args into a 
   (into-array String (map str args)))
 ```
 
-Take a look at its type declaration. We have to specify the result is a Java array of strings because otherwise Clojure compiler will complain it cannot resolve a proper constructor. It happends when there are more then one methods or costructors with the same arity so Clojure needs to know their types. This is a rare case when a type hint is not optional but mandatory.
+Take a look at its type declaration. We have to specify the result is a Java array of strings because otherwise, Clojure compiler will complain it cannot resolve a proper constructor. It happens when there are more than one methods or constructors with the same arity so Clojure needs to know their types. This is a rare case when a type hint is not optional but mandatory.
 
-Next, some imperative code follows. For example, if extra environment varialbes were passed in an optional `:env` map, we merge them into the builder's variables. Here are the functions that do that:
+Next, some imperative code follows. For example, if extra environment variables were passed in an optional `:env` map, we merge them into the builder's variables. Here are the functions that do that:
 
 ```clojure
 (defn kw->env
@@ -118,13 +118,13 @@ Next, some imperative code follows. For example, if extra environment varialbes 
       (.put env-map (kw->env key) (str val)))))
 ```
 
-Here, the `kw->env` is just an utility function that turns `:foo-bar` into `"FOO_BAR"` for example. The `set-env` takes a builder and a Clojure map. It fetches a Java map from a builder and injects all the values from a Clojure map into it. The builder objects keeps a reference to that Java map so we just mutate it.
+Here, the `kw->env` is just an utility function that turns `:foo-bar` into `"FOO_BAR"` for example. The `set-env` takes a builder and a Clojure map. It fetches a Java map from a builder and injects all the values from a Clojure map into it. The builder object keeps a reference to that Java map so we just mutate it.
 
 If any of `:path-out` or `:path-err` strings were passed, we redirect corresponding channels into files wrapping then with a `File` object.
 
-In the end of the function, we spawn and return a process instance. This is the moment when the process starts its job. For example, if it was a GUI application, its window should appear.
+At the end of the function, we spawn and return a process instance. This is the moment when the process starts its job. For example, if it was a GUI application, its window should appear.
 
-The `Process` object provides a few of methods only two of them we are intrested in. These are `.destroy` and `.exitValue` to stop the process and check if it has been stopped successfuly. When we finish communicating with the driver's HTTP server, we will call them.
+The `Process` object provides a few methods for only two of them we are interested in. These are `.destroy` and `.exitValue` to stop the process and check if it has been stopped successfully. When we finish communicating with the driver's HTTP server, we will call them.
 
 ## Starting the server
 
@@ -168,15 +168,15 @@ It doesn't say anything about if a process is still alive or it failed. Since Ja
 true
 ```
 
-It may look a bit strange that we catch an exception but it is because of Java design. If a process has't stopped yet, it throws an `IllegalThreadStateException` exception when we try to get its exit status. So we catch exactly this type of an exception to return true value.
+It may look a bit strange that we catch an exception but it is because of Java design. If a process hasn't stopped yet, it throws an `IllegalThreadStateException` exception when we try to get its exit status. So we catch exactly this type of an exception to return a true value.
 
 ## Play with Webdriver API
 
 [w3-webdriver]:https://www.w3.org/TR/webdriver/#list-of-endpoints
 
-Now that the driver is working, we are gointg to call some of its REST API. We won't dive into Webdriver protocol completely since it is a subject for a separate book. For those of you interested in I highly recommend looking through the official [Webdriver documentation][w3-webdriver].
+Now that the driver is working, we are going to call some of its REST API. We won't dive into Webdriver protocol completely since it is a subject for a separate book. For those of you interested in I highly recommend looking through the official [Webdriver documentation][w3-webdriver].
 
-So far, none of Chrome windows have opened because we didn't initiate a session. Let's obtain it. As usual, we create a couple of functions for that:
+So far, none of the Chrome windows has opened because we didn't initiate a session. Let's obtain it. As usual, we create a couple of functions for that:
 
 ```clojure
 (def base-url "http://127.0.0.1:9999")
@@ -204,11 +204,11 @@ This function performs a POST request to the `http://127.0.0.1:9999/session` end
 {"desiredCapabilities" {}}
 ```
 
-The object value for the `desiredCapabilities` field specifies additional options for the browser. There are plenty of them, but at the moment we would like to keep everything by default. The server returns a JSON response which is parsed automaticaly to a map due to `:as :json` parameters. The `sessionId` field is exactly what we need. It's a string that we save in the `_sess` variable. A webdriver handles only one session at once.
+The object value for the `desiredCapabilities` field specifies additional options for the browser. There are plenty of them, but at the moment we would like to keep everything by default. The server returns a JSON response which is parsed automatically to a map due to `:as :json` parameters. The `sessionId` field is exactly what we need. It's a string that we save in the `_sess` variable. A Webdriver handles only one session at once.
 
 At the moment, a new blank window of Chrome browser should appear. Isn't it really a magic, is it?
 
-Let's open Wikipedia page. There is a function that makes another POST request to the `http://127.0.0.1:9999/session/XXXXXXXXXXXXX/url` endpoint passing a target URL in JSON payload.
+Let's open the Wikipedia page. There is a function that makes another POST request to the `http://127.0.0.1:9999/session/XXXXXXXXXXXXX/url` endpoint passing a target URL in JSON payload.
 
 ```clojure
 (defn goto-url
@@ -222,7 +222,7 @@ Let's open Wikipedia page. There is a function that makes another POST request t
 (goto-url _sess "https://en.wikipedia.org/")
 ```
 
-The blank window should load the Wikideia content. Let's search for something. To interact with any element on a page, we need to know its ID first. Don't mix it with the `id` HTML attribute. Instead, this is a long string that identitifes a DOM node in browser's memory, for example "0.5383067151615304-1".
+The blank window should load the Wikipedia content. Let's search for something. To interact with any element on a page, we need to know its ID first. Don't mix it with the `id` HTML attribute. Instead, this is a long string that identifies a DOM node in the browser's memory, for example, "0.5383067151615304-1".
 
 ```clojure
 (defn- find-element
@@ -238,7 +238,7 @@ The blank window should load the Wikideia content. Let's search for something. T
       :ELEMENT))
 ```
 
-This function finds an element using XPath expression and returns a long ID. It will be a foundation for two high-level wrappers for inputing text and clicking on something:
+This function finds an element using XPath expression and returns the long ID. It will be a foundation for two high-level wrappers for inputting text and clicking on something:
 
 ```clojure
 (defn input-text
@@ -267,7 +267,7 @@ The following code inputs "Clojure" in a search field and clicks on a loupe butt
 
 Since there is only one meaning for term `Clojure` in Wikipedia, it redirects us to the `https://en.wikipedia.org/wiki/Clojure` URL rather than show a search results page.
 
-Combining `goto-url`, `input-text` and `click` functions you may play any scenario to automate some duties or to test your site. There are plenty of other API for example to take a schreenshot or to execute Javascript, but they are out of our scope.
+Combining `goto-url`, `input-text` and `click` functions you may play any scenario to automate some duties or to test your site. There is plenty of other API for example to take a screenshot or to execute Javascript, but they are out of our scope.
 
 To quit the session, send a new request:
 
@@ -280,7 +280,11 @@ To quit the session, send a new request:
 (delete-session _sess)
 ```
 
-At this moment, the browser window should dissapear. Remember, the proccess we started before still hangs. If anybody tries to spawn a new chromedriver, they will get an error saying the port 9999 is already used. So we stop the process manually:
+At this moment, the browser window should disappear.
+
+## Getting down the process
+
+Remember, the process we started before still hangs. If anybody tries to spawn a new chromedriver, they will get an error saying the port 9999 is already used. So we stop the process manually:
 
 ```clojure
 (defn stop-process
@@ -293,9 +297,9 @@ At this moment, the browser window should dissapear. Remember, the proccess we s
 (stop-process _p)
 ```
 
-The `.destroy` method sends a signal to a process to stop but it might take some before it completes its duties and obeys. The process may continue work for some time even after it has received such a signal. In other words, stopping a process is an asynchronous operation. The `.waitFor` method blocks the further execution until the process is really stopped.
+The `.destroy` method sends a signal to a process to stop but it might take some before it completes its duties and obeys. The process may continue to work for some time even after it has received such a signal. In other words, stopping a process is an asynchronous operation. The `.waitFor` method blocks the further execution until the process is really stopped.
 
-Forcing a programmer to keep in mind all the resource he or she should release aftewards is a bit tedious to them. Moreover, an exception might raise somewhere in the middle when calling the API so the process will hang. It would be much to create a macros that spawns a process, binds it to local variable and stops it no matter if there was exception or not.
+Forcing a programmer to keep in mind all the resources they must release is a bit tedious. Moreover, an exception might occur when calling the API. As the result, the process will hang forever. It would be great to create a macro that spawns a process, binds it to a local variable and stops it no matter if there was an exception or not.
 
 ```clojure
 (defmacro with-process
@@ -307,10 +311,7 @@ Forcing a programmer to keep in mind all the resource he or she should release a
          (stop-process ~bind)))))
 ```
 
-The first argument of that macro is a vector which's fist element stands for a
-loca variable a process instance should be bound to. There rest of the vector
-are parameters to the `proc-start` function and the `body` is an arbitrary
-Clojure code to execute.
+The first argument of that macro is a binding vector. Its first element stands for a local variable a process instance should be bound to. The rest of the vector are parameters to the `proc-start` function. The `body` is an arbitrary Clojure code to execute. The trick is, we wrap the whole logic into a `let` form that provides an instance of a process bound to some symbol. Body is protected with `try-finally` form that shuts down the process in any case. Here is an example:
 
 ```clojure
 (with-process
@@ -321,11 +322,10 @@ Clojure code to execute.
     (delete-session session)))
 ```
 
+## Conclusion
+
 [etaoin]:https://github.com/igrishaev/etaoin
 
-By the way, what we have implemented so far is a sceleton of a Selenium-like
-softaware that automates the browsers. Generaly speaking, it works the same way:
-starts a driver's process and sends HTTP requests to the local server. There is
-also a pure Clojure library [Etaoin][etaoin] that implements the official
-Webdriver API. The code snippets from our session are just simplified fragments
-borrowed from the Etaoin's codebase.
+[selenium]:https://www.seleniumhq.org/
+
+You've learnt how to manage OS processes from Clojure. What we have implemented so far is a skeleton of a [Selenium][selenium]-like software that automates browsers. Generally speaking, it works the same way: starts a driver's process and sends HTTP requests to the local server. There is also a pure Clojure [Etaoin][etaoin] library that implements the official Webdriver API. The code snippets for this session were borrowed from the Etaoin's codebase.
