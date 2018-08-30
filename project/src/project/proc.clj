@@ -61,6 +61,13 @@
     (proc-start args {:path-out path-out
                       :path-err path-err})))
 
+(defn alive?
+  [^Process p]
+  (try
+    (.exitValue p)
+    false
+    (catch IllegalThreadStateException e
+      true)))
 
 (def base-url "http://127.0.0.1:9999")
 
@@ -125,7 +132,7 @@
 
 (defn stop-process
   [^Process p]
-  (when (.isAlive p)
+  (when (alive? p)
     (.destroy p)
     (.waitFor p)
     (println (.exitValue p))))
