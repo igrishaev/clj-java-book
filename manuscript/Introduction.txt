@@ -54,7 +54,7 @@ That was the long answer to the question if you need to know Java. So far, I hop
 
 ## What is that book about
 
-This paper is focused on one narrow theme: how to use Java capabilities in Clojure. There are plenty of tutorials and books about Clojure so far, but most of them consider their readers as new ones in programming. Thus, they mostly consist of such basic subjects as defining functions and transforming collections. There is no room for extended topics as the result.
+This paper is focused on one narrow topic: how to use Java capabilities in Clojure. There are plenty of tutorials and books about Clojure so far, but most of them consider their readers as new ones in programming. They consist basically of defining functions and transforming collections. There is no room for extended topics as the result.
 
 Java interop is one of such topics. When you learn Clojure, usually you are focused primarily in the language by its own: functions and namespaces, atoms, etc. Everything looks simple and elegant so far. But once you've got a real Clojure job, it turns out the codebase is full of tricky calls to Java objects. Here, *the real work* starts.
 

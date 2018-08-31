@@ -378,6 +378,6 @@ Try to isolate calls to Java classes in a separate namespace or even a library. 
 
 Clojure code that relies on Java a lot grows in size because of `longJavaNamingRules`. As the result, it looks clumsy and might be difficult to read. Keeping such a code into a separate namespace reduces noise in the business logic.
 
-## Conclusin
+## Conclusion
 
 So far, we have passed through the most part of Clojure capabilities for Java interop. We didn't touch some topics like proxying and reifying interfaces or something else. But this book is not aimed at just enumerating features. Instead, everything in this book is about practice. I cannot guarantee we will cover all the possible Java features, but everything you will learn will be done for sure. I persuade you to start coding now. If any unmentioned feature appears, we will deal with it on the fly.
