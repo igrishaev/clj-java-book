@@ -6,16 +6,18 @@ This chapter explains basic Clojure capabilities to interoperate with Java. We w
 
 To use a class, you've got to import it first. There are two ways to import a class: in a namespace declaration which is desirable and in runtime using `import` function. For example:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (ns com.project.module
   (:import java.util.File))
-```
+~~~
 
 or
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (import 'java.util.File)
-```
+~~~
 
 In the first example, we specify a class without putting a leading quote. This is because the whole `ns` statement is a macro so everything inside it is quoted. Instead, when calling the `import` function in runtime we pass a symbol which's name stands for a class we need.
 
@@ -35,24 +37,27 @@ Let's demonstrate everything told so far with examples. We will use the standard
 
 Importing a single class:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (ns project.into
   (:import java.io.File))
-```
+~~~
 
 Importing several classes from the same package at once:
 
-```
+{lang=clojure, linenos=off}
+~~~
 (ns project.into
   (:import java.io.File
            (java.util Date UUID)))
-```
+~~~
 
 Pay attention at extra parens around the `java.util` path. It's mandatory to put them here. They help Clojure reader to not get confused when parsing imports.
 
 Let's initiate some of the classes we've imported:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (def file (File. "/Users/ivan/.emacs"))
 
 ;; evaluating the `file` variable in repl prints
@@ -62,17 +67,18 @@ Let's initiate some of the classes we've imported:
 
 ;; evaluating `date` returns
 #inst "2018-08-25T08:20:40.412-00:00"
-```
+~~~
 
 ## Static methods
 
 Some Java classes provide static methods. Calling such a method doesn't require to create an instance of a class. Access them via slash as follows:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (def uuid (UUID/randomUUID))
 
 #uuid "fb5876a6-b3c6-47dc-89d6-10dafcaf0888"
-```
+~~~
 
 [java-system]:https://docs.oracle.com/javase/9/docs/api/java/lang/System.html
 
@@ -80,13 +86,15 @@ The standard [System class][java-system] carries plenty of static methods useful
 
 To stop the program completely call its `exit` method passing an exit code. Running it in a REPL session will terminate it:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (System/exit 0)
-```
+~~~
 
 The `getenv` static methods either return either a single environ variable or the whole map of them depending on arity (the number of passed parameters):
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (System/getenv "HOME")
 "/Users/ivan"
 
@@ -97,20 +105,21 @@ The `getenv` static methods either return either a single environ variable or th
  "LEIN_HOME"    "/Users/ivan/.lein"
  ;; truncated
  }
-```
+~~~
 
 In the second case, we convent a Java native map into its Clojure counterpart to make the output look better.
 
 A simple wrapper to get the current number of seconds since 1 Jan 1970 which is also known as Unix timestamp or epoch:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (defn epoch
   []
   (quot (System/currentTimeMillis) 1000))
 
 (epoch)
 1535186375
-```
+~~~
 
 ## Object methods
 
@@ -118,37 +127,41 @@ Having an object, usually, you are interested in calling its methods. To access 
 
 Here is how you may know a file's absolute path:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (def file (File. "book.txt"))
 
 (.getAbsolutePath file)
 "/Users/ivan/drafts/project/book.txt"
-```
+~~~
 
 To check if it really exists:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (.exists file)
 true
-```
+~~~
 
 Or to rename (move) it:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (.renameTo file (File. "/Users/ivan/ready/project/book-ready.txt"))
 true
-```
+~~~
 
 ## Nested classes
 
 Sometimes, a class declares a nested class. To access it, put a dollar sign between their names. For example, if a class `Foo` carries a nested class `Bar`, a syntax to reach it will be:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (ns project.into
   (:import com.project.Foo$Bar))
 
 (def bar (Foo$Bar. param1 param2))
-```
+~~~
 
 ## Universal Java access
 
@@ -156,80 +169,91 @@ There is a special Dot form that acts like a universal access to Java properties
 
 To read a static field:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (. File pathSeparator)
 ":"
-```
+~~~
 
 To call a static method:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (. File createTempFile "temp" ".txt")
-#object[java.io.File 0x4c2544bc "/var/folders/94/rwlfpkhx4n12vfjb0d0kxspw0000gn/T/temp7711291656500566792.txt"]
-```
+#object[java.io.File 0x4c2544bc "/var/folders/94/...6500566792.txt"]
+~~~
 
 To call a method of an instance:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (. file getAbsolutePath)
 "/Users/ivan/drafts/project/book.txt"
-```
+~~~
 
 Or to read a field of an instance. Pay attention at the leading hyphen:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (. obj -value)
 ;; the same as `obj.value` in pure Java
-```
+~~~
 
 There is also a `set!` form that works in pair with the Dot macro. Use it to write a new value to a field:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (set! (. obj -value) 42)
 ;; the same as `obj.value = 42` in pure Java
-```
+~~~
 
 The last two cases with reading and writing a field are not common due to Java design. Exposing fields to the outer world is considered as bad practice. Instead, most Java programmers provide special methods to regulate how a certain field is being read or set. Thus, you call for `(.getValue obj)` or `(.setValue obj 42)` more often than accessing raw fields.
 
 The Double Dot macros acts similar to its Single Dot brother. It chains results between multiple expressions so the next form takes a value produced by a previous form. It is similar to the threading `->` macro that probably you are familiar with.
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (.. file toPath getFileSystem getClass getName)
 "sun.nio.fs.MacOSXFileSystem"
-```
+~~~
 
 Under the hood, it turns into a nested extression like:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (. (. (. (. (. file toPath) toPath) getFileSystem) getClass) getName)
-```
+~~~
 
 which is difficult to read since your eyes constantly jump to and fro.
 
 Each method in a chain is called from an object received from a previous unit. If any extra arguments are required, the method expression is put into parens:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (.. obj (some-method "foo") (other-method "bar" 42))
-```
+~~~
 
 ## Reflection
 
 To know what class an object belongs to, call `class` function:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (class file)
 java.io.File
-```
+~~~
 
 The `type` function acts similar but it checks for a variable's metadata first. Let's discuss how it works. If you define a variable with a type hint as shown below:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (def ^File file (File. "some/path.txt"))
-```
+~~~
 
 the metadata of `#'file` variable will contain a `:tag` field with `java.io.File` value:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (meta #'file)
 
 {:tag java.io.File,
@@ -238,11 +262,12 @@ the metadata of `#'file` variable will contain a `:tag` field with `java.io.File
  :file "*cider-repl*",
  :name file,
  :ns #namespace[project.into]}
-```
+~~~
 
 Probably you would like to divide logic into different branches depending on the variable's type. For example, a `file` parameter in a function might be of both `String` and `File` types. The function `instance?` checks if an object is an instance of a certain class. So instead of comparing types:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (case (class source)
 
   java.io.File
@@ -251,12 +276,12 @@ Probably you would like to divide logic into different branches depending on the
   String
   ;; do that
 )
-```
+~~~
 
 you declare predicates:
 
-```clojure
-
+{lang=clojure, linenos=off}
+~~~
 (def file? (partial instance? java.io.File))
 
 (cond
@@ -266,7 +291,7 @@ you declare predicates:
   (string? source)
   ;; do that
   )
-```
+~~~
 
 which is more readable and neat.
 
@@ -274,30 +299,34 @@ which is more readable and neat.
 
 Some Java methods accept an arbitrary number of arguments. They are marked with ellipsis in signatures and represent an array of objects when accessing them. A good example is a `format` method of a `String` class:
 
-```java
+{lang=java, linenos=off}
+~~~
 static String    format(String format, Object... args)
-```
+~~~
 
 In Clojure, calling such a method in this way won't work:
 
-```
+{lang=clojure, linenos=off}
+~~~
 (String/format "%s %s %s" "foo" "bar" "baz")
-```
+~~~
 
 An exception will raise saying `No matching method: format`.
 
 This is because, in Clojure terms, the `args` parameters should be passed as a single array. It must be exactly a native Java array but not a Clojure sequence. To make your life a bit easier, there is already a `make-array` function that turns a Clojure collection into a Java typed array:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (String/format "%s %s %s" (into-array ["foo" "bar" "baz"]))
 "foo bar baz"
-```
+~~~
 
 By default, the function builds an array of `Objects` that satisfies the method's signature in our case. When you need an array of some certain type, you pass a class as the first parameter to that function:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (String/format "%s %s %s" (into-array String ["foo" "bar" "baz"]))
-```
+~~~
 
 ## Type hints
 
@@ -305,35 +334,38 @@ Yet Clojure is a dynamic language its runtime relies on types a lot. When it kno
 
 Here is an example of a function that stops a process which is an instance of `java.lang.Process` class:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (defn stop-process
   [^Process p]
   (when (.isAlive p)
     (.destroy p)))
-```
+~~~
 
 If you remove the `^Process` clause in the signature, the function will still work. But without a hint, Clojure spends extra time to figure out what the kind of an object is there. That's normal but reduces performance. To highlight all such problem places, set a special global variable to true:
 
-```clojure
+~~~
 (set! *warn-on-reflection* true)
-```
+~~~
 
 If you compile any code that suffers from missing hints, you will see warnings in the REPL:
 
-```text
+{lang=text, linenos=off}
+~~~
 Reflection warning, /src/project/proc.clj:136:5 - reference to field destroy can't be resolved.
-```
+~~~
 
 Type hints should definitely be put in bottleneck functions called often. It is a good practice to scan the codebase for missing hints from time to time. Yet there is no need to put tags everywhere you physically can. The compiler is smart enough to guess a further type if it has enough data.
 
 A type hint may be any class imported before. Sometimes, some complex Java signatures are required to specify an array of a certain type for example. So a hint takes a form of a string:
 
-```clojure
+{lang=clojure, linenos=off}
+~~~
 (defn ^"[Ljava.lang.String;"
   args->command
   [args]
   (into-array String (map str args)))
-```
+~~~
 
 ## Best practices
 
