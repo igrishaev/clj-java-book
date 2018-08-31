@@ -8,7 +8,7 @@ I clearly remember same thoughts have been worried me before I dove into the Clo
 
 Those bits of Java knowledge were not sufficient to feel confident with the platform, I thought. What if I need to call Java code from Clojure? Will my Java-skilled teammates be laughing at me pointing out I just conjure on magic stuff without any knowledge of what's going on under the hood?
 
-## The short answer
+## Two answers
 
 My eagerness for Clojure finally won, and today I'd like to summarize the following. The short answer to that question is **no**, you don't need to be proficient in Java when starting with Clojure. If you are new to that language, don't be afraid that the whole Java machinery suddenly comes down on you. Perhaps you'll touch Java guts one day, but it will happen in many days or months since the first line of code written.
 
@@ -21,8 +21,6 @@ Clojure has been developing for ten years so far and thus most of the problems y
 Clojure idioms persuade you to develop simple APIs that are easy to use and *understand*. For example, to start a web-server, you declare a handler function that takes and returns a map. You only need to read the document describes the semantics of each field for those maps. The same approach works for fetching data via HTTP protocol. Again, the input and output data are just Clojure structures consist of maps and vectors.
 
 Let me stress it again: no, you don't need to be a Java expert. If Clojure beckons you, start your journey with no doubts.
-
-## The long answer
 
 The full response to the subject question takes a bit longer since it tries to be more realistic. If you program in Clojure regularly and it has become your primary language, sooner or later you will have to deal with Java. This is inevitable, period. The more business problems you are trying to solve, the more tools and levers you should operate on. The underlying Java world is full of such tools and you would be better to get closer to them.
 
