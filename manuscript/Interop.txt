@@ -344,6 +344,7 @@ Here is an example of a function that stops a process which is an instance of `j
 
 If you remove the `^Process` clause in the signature, the function will still work. But without a hint, Clojure spends extra time to figure out what the kind of an object is there. That's normal but reduces performance. To highlight all such problem places, set a special global variable to true:
 
+{lang=clojure, linenos=off}
 ~~~
 (set! *warn-on-reflection* true)
 ~~~
