@@ -6,4 +6,4 @@ It has been a tough material I must confess. So far, we've dug through a lot of 
 
 Getting back to the question from the beginning of a book, let me summarize. No, you don't have to know Java before getting into Clojure. Yes, professional Clojure code relies on Java a lot. But don't be afraid of it. Even going in small steps is reasonable when the road goes uphill. So the Clojure way does.
 
-Ivan Grishaev, August 2018
+Ivan Grishaev, Summer 2018

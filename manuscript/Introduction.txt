@@ -1,7 +1,5 @@
 # Introduction
 
-## The question that beginners keep asking
-
 I often hear that question especially from those who are new to Clojure. Phasing varies in time but the meaning is the same:
 
 > I fell in love with Clojure and would like to program on it on daily basis. But I've got no Java experience in the past. Do I need to know Java? Should I spend some time learning Java first?
@@ -9,6 +7,8 @@ I often hear that question especially from those who are new to Clojure. Phasing
 I clearly remember same thoughts have been worried me before I dove into the Clojure world. I knew Clojure relies on Java VM heavily but I've got poor Java experience in the past, unfortunately. Just some occasional work on legacy code and an Android app almost completely copy-pasted from public manuals.
 
 Those bits of Java knowledge were not sufficient to feel confident with the platform, I thought. What if I need to call Java code from Clojure? Will my Java-skilled teammates be laughing at me pointing out I just conjure on magic stuff without any knowledge of what's going on under the hood?
+
+## The short answer
 
 My eagerness for Clojure finally won, and today I'd like to summarize the following. The short answer to that question is **no**, you don't need to be proficient in Java when starting with Clojure. If you are new to that language, don't be afraid that the whole Java machinery suddenly comes down on you. Perhaps you'll touch Java guts one day, but it will happen in many days or months since the first line of code written.
 
