@@ -299,7 +299,7 @@ By default, the function builds an array of `Objects` that satisfies the method'
 (String/format "%s %s %s" (into-array String ["foo" "bar" "baz"]))
 ```
 
-## Type Hints
+## Type hints
 
 Yet Clojure is a dynamic language its runtime relies on types a lot. When it knows what type an object belongs to, it doesn't spend extra time on reflection and thus performs faster. You can help the compiler to guess types by adding hints. A type hint takes its place in front of a variable in function signatures or `let` bindings.
 
