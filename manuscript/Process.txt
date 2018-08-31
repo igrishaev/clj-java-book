@@ -342,12 +342,14 @@ The first argument of that macro is a binding vector. Its first element stands f
     (delete-session session)))
 ~~~
 
+[source]: https://github.com/igrishaev/clj-java-book/blob/master/project/src/project/proc.clj
+
+The whole source code is available [on GitHub][source].
+
 ## Conclusion
 
 [etaoin]:https://github.com/igrishaev/etaoin
 
 [selenium]:https://www.seleniumhq.org/
-
-TODO Github
 
 You've learnt how to manage OS processes from Clojure. What we have implemented so far is a skeleton of a [Selenium][selenium]-like software that automates browsers. Generally speaking, it works the same way: starts a driver's process and sends HTTP requests to the local server. There is also a pure Clojure [Etaoin][etaoin] library that implements the official Webdriver API. The code snippets for this session were borrowed from the Etaoin's codebase.

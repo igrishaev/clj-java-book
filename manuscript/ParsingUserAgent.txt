@@ -288,9 +288,9 @@ A quick test if we really receive Clojure data:
   :version "67.0.3396.99"}}
 ~~~
 
-We've ended up with a single function and extending just four Java classes. Such a tree might easily be printed, sent through a network as a JSON string or stored in a database that supports JSON values, for example, MongoDB or PostgreSQL.
+[source]: https://github.com/igrishaev/clj-java-book/blob/master/project/src/project/ua.clj
 
-TODO GitHub.
+We've ended up with a single function and extending just four Java classes. Such a tree might easily be printed, sent through a network as a JSON string or stored in a database that supports JSON values, for example, MongoDB or PostgreSQL. Check the source code [on GitHub][source].
 
 ## Conclusion
 

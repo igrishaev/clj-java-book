@@ -359,9 +359,9 @@ The result is:
 
 As you see, the malicious iframe was dropped whereas the YouTube one is still here. Pay attention we allow `allowfullscreen` attribute to take its place in an iframe so a user is able to expand a video on the whole screen.
 
-TODO Github link
+[source]: https://github.com/igrishaev/clj-java-book/blob/master/project/src/project/ua.clj
 
-Although the explanations took long, the final code is surprisingly short. The whole module takes less than 100 lines. You are welcome to check it on GitHub.
+Although the explanations took long, the final code is surprisingly short. The whole module takes less than 100 lines. You are welcome to check it [on GitHub][source].
 
 ## Conclusion
 

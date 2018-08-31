@@ -505,8 +505,8 @@ We may skip the metadata when passing a vector yet JDBC still handles it properl
 
 ## Conclusion
 
-So far, we've made significant progress in boosting up our database module. We established a connection between low-level Postgres types and native Clojure collections. The whole code took less than 100 lines and follows the Clojure way. You are welcome to examine its code on GitHub.
+[source]: https://github.com/igrishaev/clj-java-book/blob/master/project/src/project/db.clj
 
-TODO GitHub
+So far, we've made significant progress in boosting up our database module. We established a connection between low-level Postgres types and native Clojure collections. The whole code took less than 100 lines and follows the Clojure way. You are welcome to examine its code [on GitHub][source].
 
 It's much more convenient to have a domain that you may tweak from project to project focusing on what you exactly need rather than dealing with a monstrous system designed for everything. The won't' be a problem to make the driver work with PostGIS or any other tricky DB stuff. The approach of extending the driver on demand keeps the things simple and easy to understand which is the most valuable trait of code.

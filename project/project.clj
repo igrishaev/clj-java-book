@@ -1,7 +1,7 @@
 (defproject project "0.1.0"
 
-  :description "Code samples"
-  :url "http://grishaev.me/" ;; todo
+  :description "Code samples for Clojure Extended: Java interop book"
+  :url "https://leanpub.com/clojure-java-interop"
 
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

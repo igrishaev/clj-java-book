@@ -1,36 +1,17 @@
-# project
+# Code samples
 
-FIXME: description
+[book]: https://leanpub.com/clojure-java-interop
 
-## Installation
+A lein project with code samples for [Clojure Extended: Java interop][book] book.
 
-Download from http://example.com/FIXME.
+Start the REPL session:
 
-## Usage
+```bash
+lein repl
+```
 
-FIXME: explanation
+Then connect to it from Emacs and toy with examples.
 
-    $ java -jar project-0.1.0-standalone.jar [args]
+Copyright © 2018 Ivan Grishaev
 
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
-
-## License
-
-Copyright © 2018 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.

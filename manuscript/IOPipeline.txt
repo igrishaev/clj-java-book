@@ -259,6 +259,10 @@ Putting everything together. It takes about 40 minutes on my laptop:
 
 Of cause, a table `models` with a proper structure should be created in advance in the database.
 
+[source]: https://github.com/igrishaev/clj-java-book/blob/master/project/src/project/io.clj
+
+Examine the final version of the code on [on GitHub][source].
+
 ## Conclusion
 
 Alright, it was a tough route but we've managed to succeed. Thanks to Java IO capabilities that helped us to build the pipeline. We could improve the final solution by handling exceptions on each step and logging them. I believe it's wrong to interrupt the whole process just because one record is corrupted. Another feature would be to load the data in parallel using futures or `pmap` for a performance boost. For the rest, the subject issue is complete so we move to the next class.
