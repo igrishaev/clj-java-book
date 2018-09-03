@@ -16,6 +16,4 @@ C> * * *
 
 If you found any inaccuracies in that book or have an idea to improve something, drop me a line at [ivan@grishaev.me][email]. You may also find me on Twitter by [@i_grishaev][twitter] or in Telegram by [@igrishaev][telegram]
 
-Ivan Grishaev
-<br>
-August 2018
+Ivan Grishaev, August 2018

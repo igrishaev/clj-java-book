@@ -34,7 +34,7 @@ In Clojure, one day you will face such a non-standard task as parsing some legac
 
 Many well-known Clojure libraries are just thin wrappers around solid Java code. Inside, they might look ugly and full of mutable state and weird tricks, etc. But they work, which is most important. Reusing Java code really boosts the Clojure development process, consumes time and nerves.
 
-## Rich IO capabilities
+## IO capabilities
 
 Another reason for writing low-level Java code is to take control over IO operations. Java provides mighty capabilities for sending and accepting data to and from no matter if we deal with files, network or processes. Instead, Clojure was designed in terms of being just a guest system. It reuses the host environment (Java in our case) to provide high-level abstractions, e.g flexible collections, smart multimethod dispatching, etc. But it doesn't try to overshadow such the original low-level features as input and output or interaction with the operating system.
 

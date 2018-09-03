@@ -1,4 +1,4 @@
-### Sanitizing HTML
+# Sanitizing HTML
 
 Moving on to the second class, we will talk about sanitizing HTML which is a tricky topic. It involves working with XML documents and XPath expression.
 
